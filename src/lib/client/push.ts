@@ -8,7 +8,19 @@ import { get, post } from "./api";
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return null;
   try {
+    // Auto-reload ONCE when an updated service worker takes control: devices
+    // stuck on a stale cached app (old bundle from a previous deploy) recover
+    // without any manual action. sessionStorage guard prevents reload loops.
+    if (!sessionStorage.getItem("sada-sw-reloaded")) {
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (sessionStorage.getItem("sada-sw-reloaded")) return;
+        sessionStorage.setItem("sada-sw-reloaded", "1");
+        location.reload();
+      });
+    }
     const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    // Speed up the update check instead of waiting for the browser interval.
+    void reg.update().catch(() => undefined);
     return reg;
   } catch {
     return null;

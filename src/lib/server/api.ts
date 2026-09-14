@@ -9,6 +9,7 @@ import { verifyToken, TokenPayload } from "./jwt";
 import { enforceRateLimit, clientIp } from "./security/rate-limit";
 import { db } from "@/lib/db";
 import { randomUUID } from "crypto";
+import { ZodError } from "zod";
 
 export interface AuthContext {
   userId: string;
@@ -216,6 +217,17 @@ export function createApiHandler(router: Router) {
       }
       return res;
     } catch (err) {
+      // Validation failures from route-level zod .parse() must surface as a
+      // clean 400 VALIDATION_ERROR — never as a 500 with a stack in the log.
+      if (err instanceof ZodError) {
+        const first = err.issues[0];
+        err = new ApiError(
+          400,
+          "VALIDATION_ERROR",
+          first ? `Invalid ${first.path.join(".") || "body"}: ${first.message}` : "Invalid request body",
+          err.issues
+        );
+      }
       if (!(err instanceof ApiError)) {
         log.error("api-unhandled", {
           requestId,

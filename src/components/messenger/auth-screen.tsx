@@ -37,6 +37,11 @@ export default function AuthScreen() {
     setError("");
     try {
       const res = await post<{ sent: boolean; delivery?: Delivery; devCode?: string }>("auth/request-otp", { phone: phone.trim() });
+      // Defensive: a stale cached client talking to a newer server (or vice
+      // versa) must never surface a raw TypeError — show a recoverable hint.
+      if (!res || typeof res !== "object" || res.sent !== true) {
+        throw new ApiClientError("BAD_RESPONSE", t.badResponse, 0);
+      }
       setDevCode(res.devCode || null);
       setDelivery(res.delivery || (res.devCode ? "dev" : "sms"));
       setStep("otp");
@@ -56,6 +61,9 @@ export default function AuthScreen() {
         twofaTicket?: string;
         user?: Record<string, unknown>;
       }>("auth/verify-otp", { phone: phone.trim(), code: code.trim(), deviceName: detectDevice(), platform: "web" });
+      if (!res || typeof res !== "object" || !res.status) {
+        throw new ApiClientError("BAD_RESPONSE", t.badResponse, 0);
+      }
       if (res.status === "twofa_required" && res.twofaTicket) {
         setTicket(res.twofaTicket);
         setStep("twofa");
@@ -89,6 +97,9 @@ export default function AuthScreen() {
       username: string | null;
       bio?: string;
     }>("users/me");
+    if (!profile || typeof profile !== "object" || !profile.id) {
+      throw new ApiClientError("BAD_RESPONSE", t.badResponse, 0);
+    }
     // brand-new account (default name, no username) → profile setup step
     if (!profile.username && /^User \d+$/.test(profile.displayName)) {
       setName("");

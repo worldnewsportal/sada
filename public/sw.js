@@ -1,51 +1,74 @@
 // Sada service worker — offline shell + push display (spec §34, §18).
-const SHELL_CACHE = "sada-shell-v1";
+//
+// v2 — CRITICAL FIX: the old strategy was cache-first for ALL same-origin
+// requests, including the app document "/". Devices that visited before a
+// deploy kept loading the STALE HTML + stale JS chunks from the cache
+// forever (users saw old crashes even after the server was fixed).
+//
+// v2 strategy:
+//   - navigations (documents)  → NETWORK-FIRST, cached "/" only as offline
+//     fallback  → devices always boot the latest client build.
+//   - /api/*                   → network-only, structured offline envelope.
+//   - other same-origin GETs   → NETWORK-FIRST, cache fallback (offline shell
+//     still works; hashed prod chunks get cached opportunistically).
+const SHELL_CACHE = "sada-shell-v2";
 const SHELL_ASSETS = ["/", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS)).then(() => self.skipWaiting())
+    caches
+      .open(SHELL_CACHE)
+      .then((cache) => cache.addAll(SHELL_ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== SHELL_CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== SHELL_CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-// network-first for API, cache-first for static shell
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  if (event.request.method !== "GET") return;
+  const req = event.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+
+  // API: always live; offline → structured envelope the client understands.
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
-      fetch(event.request).catch(() =>
-        new Response(JSON.stringify({ ok: false, error: { code: "OFFLINE", message: "Offline" } }), {
-          status: 503,
-          headers: { "content-type": "application/json" },
-        })
+      fetch(req).catch(
+        () =>
+          new Response(JSON.stringify({ ok: false, error: { code: "OFFLINE", message: "Offline" } }), {
+            status: 503,
+            headers: { "content-type": "application/json" },
+          })
       )
     );
     return;
   }
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(event.request).then(
-        (cached) =>
-          cached ||
-          fetch(event.request)
-            .then((res) => {
-              const copy = res.clone();
-              caches.open(SHELL_CACHE).then((cache) => cache.put(event.request, copy)).catch(() => undefined);
-              return res;
-            })
-            .catch(() => caches.match("/"))
+
+  if (url.origin !== self.location.origin) return;
+
+  // Same-origin: NETWORK-FIRST with cache fallback (fixes stale-app bug).
+  event.respondWith(
+    fetch(req)
+      .then((res) => {
+        // Opportunistic cache for offline fallback (best-effort, never blocks).
+        const copy = res.clone();
+        caches.open(SHELL_CACHE).then((cache) => cache.put(req, copy)).catch(() => undefined);
+        return res;
+      })
+      .catch(() =>
+        caches
+          .match(req)
+          .then((cached) => cached || (req.mode === "navigate" ? caches.match("/") : undefined))
+          .then((fallback) => fallback || new Response("Offline", { status: 503, statusText: "Offline" }))
       )
-    );
-  }
+  );
 });
 
 // push display (spec §18)

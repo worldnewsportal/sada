@@ -45,3 +45,26 @@ Stage Summary:
 - ChatRow infinite-loop bug FIXED and verified end-to-end in a real browser as a real user.
 - Rule established for the codebase: Zustand v5 + React 19 selectors must return primitives or stable store references; ephemeral mutators (presence/typing/connection) must no-op on redundant writes.
 - Services running: web :3000 (200), realtime :3003 /internal/health {"ok":true}, DB seeded (4 users + group + channel + extras).
+
+---
+Task ID: 3
+Agent: Super Z (main)
+Task: Fix "Cannot read properties of undefined (reading 'devCode')" on registration (user screenshot +999502222222) — stale PWA cache serving old client; harden dual registration (test +999 / real SMS) end-to-end
+
+Work Log:
+- User screenshot showed raw TypeError at auth request-otp despite backend returning correct envelope (verified via live curl: {"ok":true,"data":{...,delivery:"test",devCode}} — backend/OTP dual-mode code was already correct).
+- ROOT CAUSE: public/sw.js v1 was CACHE-FIRST for all same-origin GETs including the app document "/" → devices that loaded the app before a deploy keep booting the stale HTML + stale JS chunks forever (old client read an older response shape → TypeError). Same class of issue as the Task-2 stale-SW incident, now fixed structurally.
+- Fix 1 (public/sw.js → v2 "sada-shell-v2"): navigations now NETWORK-FIRST (cache "/" only as offline fallback); other same-origin GETs network-first with cache fallback; /api/* network-only with offline JSON envelope. Old cache name deleted on activate.
+- Fix 2 (src/lib/client/push.ts): auto-reload ONCE on service worker controllerchange (sessionStorage-guarded against loops) + reg.update() on boot → devices recover from stale bundles without manual action.
+- Fix 3 (auth-screen.tsx + i18n): defensive response-shape guards in requestOtp/verifyOtp/afterLogin → friendly localized t.badResponse error instead of raw TypeError; added badResponse key to ar+en dictionaries.
+- Bonus bug found during security probing: invalid phone ("abc") returned 500 INTERNAL with stack in log — ZodError from route-level .parse() was unhandled. Fixed centrally in src/lib/server/api.ts catch: ZodError → 400 VALIDATION_ERROR (applies to all 87 routes).
+- Browser verification (agent-browser, real flows): Flow A +999509999001 → OTP shown in-app → verify → profile setup (testdemo1) → chats ✅. Flow B +9647701122334 (real format, dev-echo delivery) → verify → profile (realuser1) → chats ✅. Re-tested user's exact number +999502222222 → OTP step → verify → logged in ✅. Zero console/page errors.
+- Security probes via curl: wrong codes rejected ("Incorrect code", attempts++), correct code still accepted within cap, immediate resend → 429 RATE_LIMITED retryAfterS:42 (45s cooldown), hourly per-phone ceiling 10, invalid phone → 400 VALIDATION_ERROR.
+- Gates: tsc --noEmit CLEAN, eslint CLEAN, bun test 25/25 PASS.
+- Evidence: download/sada-test-number-flow-fixed.png
+
+Stage Summary:
+- Registration is dual-mode and fully working: test numbers "+999…" = instant in-app code (no SMS, never hits a provider, production-gated by ALLOW_TEST_PHONES); real numbers = pluggable SMS (Twilio / generic HTTP gateway; dev-echo fallback in non-production, auto-disabled in production, code never in response when a real provider sends).
+- OTP hardening confirmed live: hashed+salted codes, 5-min TTL, 5-attempt cap, 45s resend cooldown, 10/hour ceiling, per-phone + per-IP rate limits, audit events.
+- Devices stuck on stale PWA bundles now self-heal (SW v2 network-first + one-time auto-reload). Users with the old cache need ONE manual refresh to escape v1; from then on updates apply automatically.
+- Rule added: never cache-first the app document in the service worker; client must defensively validate API response shapes at auth boundaries.
