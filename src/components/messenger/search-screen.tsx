@@ -71,7 +71,7 @@ export default function SearchScreen() {
       <div className="p-2 border-b">
         <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.searchPlaceholder} className="h-10" />
       </div>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         {busy && <p className="p-3 text-center text-sm text-muted-foreground">{t.loading}</p>}
         {res && (
           <div className="divide-y">

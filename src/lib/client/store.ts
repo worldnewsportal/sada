@@ -215,6 +215,11 @@ export const useStore = create<MessengerState>((set, get) => ({
 
 // ---- event application (socket events → store) ----
 
+// typing indicators self-expire after 6s: if the "stopped typing" event is
+// lost (drop, tab switch), the indicator would otherwise stick forever
+const typingExpiry = new Map<string, ReturnType<typeof setTimeout>>();
+const TYPING_EXPIRE_MS = 6000;
+
 export function applyEventToStore(ev: {
   seq: number;
   type: string;
@@ -231,7 +236,19 @@ export function applyEventToStore(ev: {
       break;
     case Events.USER_TYPING:
       if (ev.chatId && ev.payload?.userId) {
+        const key = `${ev.chatId}:${ev.payload.userId}`;
         s.setTyping(ev.chatId, ev.payload.userId as string, !!ev.payload.isTyping);
+        const prev = typingExpiry.get(key);
+        if (prev) clearTimeout(prev);
+        if (ev.payload.isTyping) {
+          typingExpiry.set(
+            key,
+            setTimeout(() => {
+              typingExpiry.delete(key);
+              useStore.getState().setTyping(ev.chatId as string, ev.payload!.userId as string, false);
+            }, TYPING_EXPIRE_MS)
+          );
+        }
       }
       break;
     case Events.MESSAGE_DELETED:

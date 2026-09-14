@@ -596,6 +596,129 @@ describe("email provider resolution (env matrix)", () => {
   });
 });
 
+describe("username rules (mandatory, case-insensitive unique, reserved forever)", () => {
+  test("availability: invalid/reserved/taken/available + case-insensitive uniqueness", async () => {
+    const { usernameAvailable } = await import("../src/lib/server/services/users.service");
+    const { updateProfile } = await import("../src/lib/server/services/users.service");
+
+    expect(await usernameAvailable("ab")).toEqual({ available: false, reason: "invalid" }); // < 4 chars
+    expect(await usernameAvailable("has space!")).toEqual({ available: false, reason: "invalid" });
+    expect(await usernameAvailable("admin")).toEqual({ available: false, reason: "reserved" });
+    expect((await usernameAvailable("mgo3")).available).toBe(true);
+
+    const u = await makeUser("MGO Owner");
+    await updateProfile(u.id, { username: "MGO3" }); // stored lowercase "mgo3"
+    expect((await db.user.findUnique({ where: { id: u.id } }))?.username).toBe("mgo3");
+
+    // the exact ask: "if one user is MGO3, nobody else can take it — ever"
+    // same name in ANY casing must be unavailable
+    expect(await usernameAvailable("MGO3")).toEqual({ available: false, reason: "taken" });
+    expect(await usernameAvailable("mgo3")).toEqual({ available: false, reason: "taken" });
+    expect(await usernameAvailable("MgO3")).toEqual({ available: false, reason: "taken" });
+
+    // server-side conflict on the write path too (other user, any casing)
+    const other = await makeUser("Second");
+    let msg = "";
+    try {
+      await updateProfile(other.id, { username: "MGO3" });
+    } catch (e) {
+      msg = (e as Error).message;
+    }
+    expect(msg).toContain("taken");
+
+    // unrelated name still available
+    expect((await usernameAvailable("freename99")).available).toBe(true);
+  });
+
+  test("username is permanent once set — clearing is rejected", async () => {
+    const { updateProfile } = await import("../src/lib/server/services/users.service");
+    const u = await makeUser("Permanent");
+    await updateProfile(u.id, { username: "keeper1" });
+    let msg = "";
+    try {
+      await updateProfile(u.id, { username: null });
+    } catch (e) {
+      msg = (e as Error).message;
+    }
+    expect(msg).toContain("permanent");
+    expect((await db.user.findUnique({ where: { id: u.id } }))?.username).toBe("keeper1");
+  });
+});
+
+describe("mandatory signup password (email)", () => {
+  test("intent=signup without password is rejected before any mail is sent", async () => {
+    const { requestEmailOtp } = await import("../src/lib/server/services/auth.service");
+    const email = `nopass-${randomBytes(4).toString("hex")}@test.local`;
+    let status = 0;
+    let msg = "";
+    try {
+      await requestEmailOtp(email, { intent: "signup" }, "test-ip");
+    } catch (e) {
+      status = (e as { status?: number }).status || 0;
+      msg = (e as Error).message;
+    }
+    expect(status).toBe(400);
+    expect(msg).toContain("Password is required");
+    // nothing was queued / sent
+    expect(await db.emailOtp.count({ where: { email } })).toBe(0);
+  });
+});
+
+describe("account deletion (real tombstone — the old flow never ran)", () => {
+  test("wrong password blocked; correct password wipes PII, revokes sessions, reserves username forever", async () => {
+    const { deleteMyAccount } = await import("../src/lib/server/services/users.service");
+    const { hashPassword } = await import("../src/lib/server/security/password");
+
+    const u = await makeUser("Doomed");
+    const hash = hashPassword("DeleteMe123");
+    await db.user.update({
+      where: { id: u.id },
+      data: { username: "doomed1", email: `doomed-${randomBytes(3).toString("hex")}@test.local`, passwordHash: hash, bio: "bye", twofaEnabled: true, twofaSecret: "secret" },
+    });
+    await db.session.create({
+      data: { id: randomBytes(12).toString("hex"), userId: u.id, refreshTokenHash: randomBytes(32).toString("hex"), deviceName: "test", expiresAt: new Date(Date.now() + 86400_000) },
+    });
+    const before = await db.user.findUnique({ where: { id: u.id } });
+
+    // wrong password → forbidden, nothing deleted
+    let status = 0;
+    try {
+      await deleteMyAccount(u.id, "WrongPass99", "test-ip");
+    } catch (e) {
+      status = (e as { status?: number }).status || 0;
+    }
+    expect(status).toBe(403);
+    expect((await db.user.findUnique({ where: { id: u.id } }))?.deletedAt).toBeNull();
+
+    // correct password → real deletion
+    const res = await deleteMyAccount(u.id, "DeleteMe123", "test-ip");
+    expect(res.deleted).toBe(true);
+
+    const after = await db.user.findUnique({ where: { id: u.id } });
+    expect(after?.deletedAt).not.toBeNull();
+    expect(after?.phone).toBeNull();
+    expect(after?.phoneHash).toBeNull();
+    expect(after?.email).toBeNull();
+    expect(after?.passwordHash).toBeNull();
+    expect(after?.bio).toBeNull();
+    expect(after?.twofaSecret).toBeNull();
+    expect(after?.displayName).toBe("حساب محذوف");
+    // username intentionally kept → reserved FOREVER for everyone
+    expect(after?.username).toBe(before?.username);
+    const { usernameAvailable } = await import("../src/lib/server/services/users.service");
+    expect(await usernameAvailable("doomed1")).toEqual({ available: false, reason: "taken" });
+    expect(await usernameAvailable("DOOMED1")).toEqual({ available: false, reason: "taken" });
+
+    // every session revoked → all devices dead instantly
+    const sessions = await db.session.findMany({ where: { userId: u.id } });
+    expect(sessions.length).toBeGreaterThan(0);
+    for (const s of sessions) {
+      expect(s.revokedAt).not.toBeNull();
+      expect(s.revokedReason).toBe("account-deleted");
+    }
+  });
+});
+
 afterAll(async () => {
   await db.$disconnect();
 });

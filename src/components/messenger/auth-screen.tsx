@@ -2,7 +2,7 @@
 // Auth flow (spec screens 2-4): phone → OTP → (2FA) → profile setup.
 // Dual registration: phone (+999 test / real SMS) OR email (activation code
 // + welcome mail, optional signup password, password login).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +15,7 @@ type Method = "phone" | "email";
 type EmailIntent = "signup" | "login";
 type EmailLoginMode = "code" | "password";
 type Delivery = "test" | "sms" | "dev" | "email" | null;
+type UsernameStatus = "idle" | "checking" | "ok" | "taken" | "invalid" | "reserved";
 
 // Must mirror server TEST_PHONE_PREFIXES default (+999 — unassigned country
 // code, collision-free). Server remains the source of truth; this only
@@ -22,6 +23,10 @@ type Delivery = "test" | "sms" | "dev" | "email" | null;
 const TEST_PREFIX = "+999";
 const isTestPhoneLocal = (phone: string) => phone.replace(/[\s()-]/g, "").startsWith(TEST_PREFIX);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const USERNAME_RE = /^[a-zA-Z0-9_]{4,32}$/;
+
+// mirrors server policy (security/password.ts): ≥8 chars, letters + digits
+const passwordValid = (p: string) => p.length >= 8 && /[a-zA-Z]/.test(p) && /\d/.test(p);
 
 export default function AuthScreen() {
   const t = useT();
@@ -37,6 +42,10 @@ export default function AuthScreen() {
   const [twofa, setTwofa] = useState("");
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
+  const [needPassword, setNeedPassword] = useState<boolean | null>(null);
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
   const [delivery, setDelivery] = useState<Delivery>(null);
   const [ticket, setTicket] = useState("");
@@ -201,6 +210,14 @@ export default function AuthScreen() {
     // brand-new account (default name, no username) → profile setup step
     if (!profile.username && /^User \d+$/.test(profile.displayName)) {
       setName("");
+      setUsername("");
+      setUsernameStatus("idle");
+      setNewPw("");
+      setConfirmPw("");
+      // password is mandatory for new accounts: phone accounts (and any
+      // passwordless path) set it here; email signups already have one
+      const pw = await api<{ hasPassword: boolean }>("users/me/password").catch(() => ({ hasPassword: false }));
+      setNeedPassword(!pw?.hasPassword);
       setStep("profile");
       return;
     }
@@ -208,15 +225,47 @@ export default function AuthScreen() {
     useStore.getState().setView("chats");
   };
 
+  // live username availability (debounced) — uniqueness is enforced by the
+  // server (case-insensitive, reserved forever); this only gives instant UX
+  useEffect(() => {
+    if (step !== "profile") return;
+    const u = username.trim();
+    if (!u) {
+      setUsernameStatus("idle");
+      return;
+    }
+    if (!USERNAME_RE.test(u)) {
+      setUsernameStatus("invalid");
+      return;
+    }
+    setUsernameStatus("checking");
+    const timer = setTimeout(() => {
+      api<{ available: boolean; reason: string | null }>(`users/username-available?u=${encodeURIComponent(u)}`)
+        .then((r) => {
+          if (!r || typeof r.available !== "boolean") throw new Error("bad");
+          setUsernameStatus(r.available ? "ok" : r.reason === "reserved" ? "reserved" : "taken");
+        })
+        .catch(() => setUsernameStatus("idle"));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [username, step]);
+
   const saveProfile = async () => {
+    // mandatory fields: display name + unique username (+ password when the
+    // account has none yet — e.g. phone registration)
+    if (!name.trim() || usernameStatus !== "ok") return;
+    if (needPassword && (!passwordValid(newPw) || newPw !== confirmPw)) return;
     setBusy(true);
     setError("");
     try {
+      if (needPassword) {
+        await post("users/me/password", { newPassword: newPw });
+      }
       await api("users/me", {
         method: "PATCH",
         body: JSON.stringify({
-          displayName: name.trim() || undefined,
-          username: username.trim() || null,
+          displayName: name.trim(),
+          username: username.trim(),
         }),
       });
       await afterLogin();
@@ -343,7 +392,7 @@ export default function AuthScreen() {
 
                     {emailIntent === "signup" ? (
                       <>
-                        <label className="text-xs text-teal-300">{t.optionalPassword}</label>
+                        <label className="text-xs text-teal-300">{t.password} <span className="text-amber-300">*{t.required}</span></label>
                         <Input
                           dir="ltr"
                           type="password"
@@ -351,15 +400,13 @@ export default function AuthScreen() {
                           className="bg-teal-950/60 border-teal-700 text-teal-50 text-left"
                           value={signupPassword}
                           onChange={(e) => setSignupPassword(e.target.value)}
-                          aria-label={t.optionalPassword}
+                          aria-label={t.password}
                         />
-                        {signupPassword && (
-                          <p className="text-[11px] text-teal-400/80" dir="rtl">{t.passwordPolicyHint}</p>
-                        )}
+                        <p className="text-[11px] text-teal-400/80" dir="rtl">{t.passwordPolicyHint}</p>
                         <p className="text-xs text-teal-300/80 text-center" dir="rtl">{t.activationSent}</p>
                         <Button
                           className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold"
-                          disabled={busy || !email.trim()}
+                          disabled={busy || !email.trim() || !passwordValid(signupPassword)}
                           onClick={() => requestEmailCode("signup")}
                         >
                           {t.createAccountBtn}
@@ -496,7 +543,9 @@ export default function AuthScreen() {
                   onChange={(e) => setName(e.target.value)}
                   aria-label={t.displayName}
                 />
-                <label className="text-xs text-teal-300">{t.username}</label>
+                <label className="text-xs text-teal-300">
+                  {t.username} <span className="text-amber-300">*{t.required}</span>
+                </label>
                 <Input
                   dir="ltr"
                   className="bg-teal-950/60 border-teal-700 text-teal-50 text-left"
@@ -505,7 +554,73 @@ export default function AuthScreen() {
                   onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 32))}
                   aria-label={t.username}
                 />
-                <Button className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold" disabled={busy || !name.trim()} onClick={saveProfile}>
+                {usernameStatus !== "idle" && (
+                  <p
+                    className={
+                      "text-xs px-3 py-1.5 rounded-lg " +
+                      (usernameStatus === "ok"
+                        ? "text-emerald-300 bg-emerald-500/10"
+                        : usernameStatus === "checking"
+                          ? "text-teal-300 bg-teal-500/10"
+                          : "text-red-300 bg-red-500/10")
+                    }
+                    role="status"
+                  >
+                    {usernameStatus === "ok"
+                      ? t.usernameAvailable
+                      : usernameStatus === "checking"
+                        ? t.usernameChecking
+                        : usernameStatus === "invalid"
+                          ? t.usernameInvalid
+                          : usernameStatus === "reserved"
+                            ? t.usernameReserved
+                            : t.usernameTaken}
+                  </p>
+                )}
+                {needPassword && (
+                  <>
+                    <label className="text-xs text-teal-300">
+                      {t.password} <span className="text-amber-300">*{t.required}</span>
+                    </label>
+                    <Input
+                      dir="ltr"
+                      type="password"
+                      autoComplete="new-password"
+                      className="bg-teal-950/60 border-teal-700 text-teal-50 text-left"
+                      value={newPw}
+                      onChange={(e) => setNewPw(e.target.value)}
+                      aria-label={t.password}
+                    />
+                    <label className="text-xs text-teal-300">{t.confirmPassword}</label>
+                    <Input
+                      dir="ltr"
+                      type="password"
+                      autoComplete="new-password"
+                      className="bg-teal-950/60 border-teal-700 text-teal-50 text-left"
+                      value={confirmPw}
+                      onChange={(e) => setConfirmPw(e.target.value)}
+                      aria-label={t.confirmPassword}
+                    />
+                    {newPw && (
+                      <p className={"text-[11px] " + (passwordValid(newPw) ? "text-emerald-300/80" : "text-amber-300/90")} dir="rtl">
+                        {t.passwordPolicyHint}
+                      </p>
+                    )}
+                    {confirmPw && newPw !== confirmPw && (
+                      <p className="text-[11px] text-red-300" dir="rtl">{t.passwordMismatch}</p>
+                    )}
+                  </>
+                )}
+                <Button
+                  className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold"
+                  disabled={
+                    busy ||
+                    !name.trim() ||
+                    usernameStatus !== "ok" ||
+                    (needPassword === true && (!passwordValid(newPw) || newPw !== confirmPw))
+                  }
+                  onClick={saveProfile}
+                >
                   {t.continue}
                 </Button>
               </>

@@ -42,7 +42,7 @@ export default function SettingsScreen() {
           </Button>
           <h1 className="font-bold text-sm">{sectionTitle(section, t)}</h1>
         </header>
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="p-4 max-w-lg mx-auto">
             {section === "profile" && <ProfileSection onSaved={(u) => setMe(u as never)} />}
             {section === "privacy" && <PrivacySection />}
@@ -68,7 +68,7 @@ export default function SettingsScreen() {
       <header className="h-14 flex items-center px-3 border-b bg-teal-950 text-teal-50">
         <h1 className="font-bold">{t.settings}</h1>
       </header>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-4 max-w-lg mx-auto space-y-4">
           {/* profile card */}
           <button onClick={() => setSection("profile")} className="w-full flex items-center gap-3 p-3 rounded-xl border hover:bg-muted/60 text-start">
@@ -142,9 +142,25 @@ function ProfileSection({ onSaved }: { onSaved: (u: Record<string, unknown>) => 
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
 
+  // username is mandatory: valid format + (unchanged or available)
+  const uname = username.trim();
+  const usernameChanged = uname !== (me?.username || "");
+  const [usernameAvailable, setUsernameAvailable] = useState(true);
+
   useEffect(() => {
     get<{ bio: string | null }>("users/me").then((p) => setBio(p.bio || "")).catch(() => undefined);
   }, []);
+
+  // live availability when the username changed (debounced)
+  useEffect(() => {
+    if (!usernameChanged || !/^[a-zA-Z0-9_]{4,32}$/.test(uname)) return;
+    const timer = setTimeout(() => {
+      get<{ available: boolean }>(`users/username-available?u=${encodeURIComponent(uname)}`)
+        .then((r) => setUsernameAvailable(!!r?.available))
+        .catch(() => undefined);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [uname, usernameChanged]);
 
   const uploadAvatar = async () => {
     const input = document.createElement("input");
@@ -171,10 +187,11 @@ function ProfileSection({ onSaved }: { onSaved: (u: Record<string, unknown>) => 
 
   const save = async () => {
     setError("");
+    if (!name.trim() || !/^[a-zA-Z0-9_]{4,32}$/.test(uname) || (usernameChanged && !usernameAvailable)) return;
     try {
       const updated = await patch<Record<string, unknown>>("users/me", {
         displayName: name.trim(),
-        username: username.trim() || null,
+        username: uname,
         bio,
       });
       onSaved({ ...(me || {}), ...updated });
@@ -198,10 +215,15 @@ function ProfileSection({ onSaved }: { onSaved: (u: Record<string, unknown>) => 
       <Input value={name} onChange={(e) => setName(e.target.value)} aria-label={t.displayName} />
       <Label>{t.username}</Label>
       <Input dir="ltr" value={username} onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 32))} placeholder={t.usernameHint} aria-label={t.username} />
+      {usernameChanged && uname.length >= 4 && (
+        <p className={"text-xs " + (usernameAvailable ? "text-emerald-600" : "text-destructive")} role="status">
+          {usernameAvailable ? t.usernameAvailable : t.usernameTaken}
+        </p>
+      )}
       <Label>{t.bio}</Label>
       <Input value={bio} onChange={(e) => setBio(e.target.value.slice(0, 280))} aria-label={t.bio} />
       {error && <p className="text-xs text-destructive">{error}</p>}
-      <Button className="w-full bg-teal-600 hover:bg-teal-500" onClick={save}>
+      <Button className="w-full bg-teal-600 hover:bg-teal-500" disabled={!name.trim() || !/^[a-zA-Z0-9_]{4,32}$/.test(uname) || (usernameChanged && !usernameAvailable)} onClick={save}>
         {saved ? <Check className="w-4 h-4" /> : t.save}
       </Button>
     </div>
@@ -561,24 +583,62 @@ function ThemeRow() {
 function DangerZone() {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const [hasPassword, setHasPassword] = useState(false);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const openDialog = async () => {
+    setPassword("");
+    setError("");
+    const pw = await get<{ hasPassword: boolean }>("users/me/password").catch(() => ({ hasPassword: false }));
+    setHasPassword(!!pw?.hasPassword);
+    setOpen(true);
+  };
+
+  const doDelete = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await post("users/me/delete", hasPassword ? { password } : {});
+      setOpen(false);
+      location.reload();
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
+  };
+
   return (
     <>
-      <Button variant="ghost" className="w-full text-destructive" onClick={() => setOpen(true)}>
+      <Button variant="ghost" className="w-full text-destructive" onClick={openDialog}>
         <Trash2 className="w-4 h-4 me-2" />{t.deleteAccount}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>{t.deleteAccount}</DialogTitle></DialogHeader>
           <p className="text-sm text-destructive">{t.deleteAccountWarn}</p>
+          <p className="text-xs text-muted-foreground" dir="auto">{t.deleteAccountUsername}</p>
+          {hasPassword && (
+            <div className="space-y-1">
+              <Label htmlFor="del-pw">{t.deleteAccountPassword}</Label>
+              <Input
+                id="del-pw"
+                dir="ltr"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          )}
+          {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>{t.cancel}</Button>
             <Button
               variant="destructive"
-              onClick={async () => {
-                await post("users/me/delete", {});
-                setOpen(false);
-                location.reload();
-              }}
+              disabled={busy || (hasPassword && !password)}
+              onClick={doDelete}
             >
               {t.delete}
             </Button>

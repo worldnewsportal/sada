@@ -55,6 +55,7 @@ export default function ChatView() {
   const [scheduleAt, setScheduleAt] = useState("");
   const [recording, setRecording] = useState(false);
   const [sendMenuOpen, setSendMenuOpen] = useState(false);
+  const [showJumpDown, setShowJumpDown] = useState(false);
   const peerOnline = useStore((s) => (chat?.peer ? s.onlineUsers.has(chat.peer.id) : false));
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -100,7 +101,9 @@ export default function ChatView() {
   const onScroll = useCallback(async () => {
     const el = scrollRef.current;
     if (!el || !activeChatId) return;
-    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    stickToBottom.current = atBottom;
+    setShowJumpDown(!atBottom);
     if (el.scrollTop < 60 && hasMore && !loading) {
       const prevHeight = el.scrollHeight;
       const loaded = await loadOlderMessages(activeChatId);
@@ -111,6 +114,14 @@ export default function ChatView() {
       }
     }
   }, [activeChatId, hasMore, loading]);
+
+  const jumpToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottom.current = true;
+    setShowJumpDown(false);
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, []);
 
   if (!activeChatId || !chat) return null;
 
@@ -276,33 +287,45 @@ export default function ChatView() {
       )}
 
       {/* messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto py-3 bg-chat-pattern" onScroll={onScroll} role="log" aria-live="polite">
-        {hasMore && (
-          <div className="text-center pb-2">
-            <Button variant="ghost" size="sm" className="text-xs" disabled={loading} onClick={() => loadOlderMessages(activeChatId)}>
-              {loading ? t.loading : t.loadOlder}
-            </Button>
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <MessageBubble
-            key={msg.id}
-            msg={msg}
-            prev={i > 0 ? messages[i - 1] : undefined}
-            chatType={chat.type}
-            onReply={(m) => { setReplyTo(m); setEditing(null); }}
-            onEdit={(m) => { setEditing(m); setDraft(m.text || ""); }}
-            onOpenMedia={(mediaId) => { useStore.getState().setView("media-viewer", mediaId); }}
-          />
-        ))}
-        {anyTyping && (
-          <div className="px-4 py-1">
-            <div className="inline-flex items-center gap-1 bg-muted rounded-full px-3 py-1.5">
-              <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+      <div className="relative flex-1 min-h-0">
+        <div ref={scrollRef} className="h-full overflow-y-auto py-3 bg-chat-pattern" onScroll={onScroll} role="log" aria-live="polite">
+          {hasMore && (
+            <div className="text-center pb-2">
+              <Button variant="ghost" size="sm" className="text-xs" disabled={loading} onClick={() => loadOlderMessages(activeChatId)}>
+                {loading ? t.loading : t.loadOlder}
+              </Button>
             </div>
-          </div>
+          )}
+          {messages.map((msg, i) => (
+            <MessageBubble
+              key={msg.id}
+              msg={msg}
+              prev={i > 0 ? messages[i - 1] : undefined}
+              chatType={chat.type}
+              onReply={(m) => { setReplyTo(m); setEditing(null); }}
+              onEdit={(m) => { setEditing(m); setDraft(m.text || ""); }}
+              onOpenMedia={(mediaId) => { useStore.getState().setView("media-viewer", mediaId); }}
+            />
+          ))}
+          {anyTyping && (
+            <div className="px-4 py-1">
+              <div className="inline-flex items-center gap-1 bg-muted rounded-full px-3 py-1.5">
+                <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          )}
+        </div>
+        {/* jump-to-latest — appears when scrolled up (new message arrived etc.) */}
+        {showJumpDown && (
+          <button
+            onClick={jumpToBottom}
+            className="absolute bottom-3 end-3 w-10 h-10 rounded-full bg-teal-600 hover:bg-teal-500 text-white shadow-lg flex items-center justify-center transition-opacity"
+            aria-label={t.jumpToLatest}
+          >
+            <ChevronDown className="w-5 h-5" />
+          </button>
         )}
       </div>
 

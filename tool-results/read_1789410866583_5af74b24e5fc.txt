@@ -1,0 +1,664 @@
+     1→// ============================================================
+     2→// /api/v1 catch-all router — versioned REST API (spec §5).
+     3→// thin adapter: all logic lives in service modules.
+     4→// ============================================================
+     5→import { z } from "zod";
+     6→import { createApiHandler, ok, Router, setAuthCookie, clearAuthCookie, Ctx } from "@/lib/server/api";
+     7→import { ApiError } from "@/lib/server/errors";
+     8→import * as auth from "@/lib/server/services/auth.service";
+     9→import * as users from "@/lib/server/services/users.service";
+    10→import * as chats from "@/lib/server/services/chats.service";
+    11→import * as messages from "@/lib/server/services/messages.service";
+    12→import * as mediaSvc from "@/lib/server/services/media.service";
+    13→import * as sync from "@/lib/server/services/sync.service";
+    14→import * as notif from "@/lib/server/services/notifications.service";
+    15→import * as moderation from "@/lib/server/services/moderation.service";
+    16→import * as adminSvc from "@/lib/server/services/admin.service";
+    17→import { verifyMediaUrl } from "@/lib/server/security/signed-url";
+    18→import { enforceRateLimit } from "@/lib/server/security/rate-limit";
+    19→import { env } from "@/lib/server/env";
+    20→import { ensureInitialAdmin } from "@/lib/server/services/admin.service";
+    21→import { DEFAULT_STICKERS } from "@/lib/shared/constants";
+    22→
+    23→const router = new Router();
+    24→// expose for tooling (openapi generation) without adding a route export
+    25→(globalThis as unknown as { __sadaRouter?: Router }).__sadaRouter = router;
+    26→
+    27→// bootstrap admin once per process
+    28→let adminBootstrapped = false;
+    29→async function bootstrapAdmin() {
+    30→  if (!adminBootstrapped) {
+    31→    adminBootstrapped = true;
+    32→    await ensureInitialAdmin().catch(() => undefined);
+    33→  }
+    34→}
+    35→
+    36→function me(ctx: Ctx) {
+    37→  if (!ctx.auth) throw ApiError.unauthorized();
+    38→  return ctx.auth;
+    39→}
+    40→
+    41→// ---------------- AUTH (spec §15) ----------------
+    42→
+    43→router.post("auth/request-otp", async (ctx) => {
+    44→  const body = await ctx.json<{ phone: string }>();
+    45→  const parsed = z.object({ phone: z.string().min(6).max(20) }).parse(body);
+    46→  return ok(await auth.requestOtp(parsed.phone, ctx.ip));
+    47→}, { auth: false });
+    48→
+    49→router.post("auth/verify-otp", async (ctx) => {
+    50→  const body = await ctx.json<{ phone: string; code: string; deviceName?: string; platform?: string }>();
+    51→  const parsed = z
+    52→    .object({
+    53→      phone: z.string().min(6).max(20),
+    54→      code: z.string().min(4).max(8),
+    55→      deviceName: z.string().max(60).optional(),
+    56→      platform: z.string().max(20).optional(),
+    57→    })
+    58→    .parse(body);
+    59→  const result = await auth.verifyOtp(parsed.phone, parsed.code, parsed, ctx.ip);
+    60→
+    61→  const res = ok(result);
+    62→  if (result.status === "ok" && result.accessToken && result.refreshToken) {
+    63→    setAuthCookie(res, "sada_session", result.accessToken, 60 * 30); // 30 min sliding; client refreshes
+    64→    setAuthCookie(res, "sada_refresh", result.refreshToken, 30 * 86400);
+    65→  }
+    66→  return res;
+    67→}, { auth: false });
+    68→
+    69→router.post("auth/twofa", async (ctx) => {
+    70→  const body = await ctx.json<{ ticket: string; code: string; deviceName?: string; platform?: string }>();
+    71→  const result = await auth.verifyTwofa(body.ticket, body.code, body, ctx.ip);
+    72→  const res = ok(result);
+    73→  if (result.status === "ok" && result.accessToken && result.refreshToken) {
+    74→    setAuthCookie(res, "sada_session", result.accessToken, 60 * 30);
+    75→    setAuthCookie(res, "sada_refresh", result.refreshToken, 30 * 86400);
+    76→  }
+    77→  return res;
+    78→}, { auth: false });
+    79→
+    80→// ---------------- AUTH: EMAIL (signup + login) ----------------
+    81→
+    82→router.post("auth/request-email-otp", async (ctx) => {
+    83→  const body = await ctx.json<{ email: string; intent?: "signup" | "login"; password?: string }>();
+    84→  const parsed = z
+    85→    .object({
+    86→      email: z.string().min(5).max(254),
+    87→      intent: z.enum(["signup", "login"]).optional(),
+    88→      password: z.string().min(1).max(128).optional(),
+    89→    })
+    90→    .parse(body);
+    91→  return ok(await auth.requestEmailOtp(parsed.email, { intent: parsed.intent, password: parsed.password }, ctx.ip));
+    92→}, { auth: false });
+    93→
+    94→router.post("auth/verify-email-otp", async (ctx) => {
+    95→  const body = await ctx.json<{ email: string; code: string; deviceName?: string; platform?: string }>();
+    96→  const parsed = z
+    97→    .object({
+    98→      email: z.string().min(5).max(254),
+    99→      code: z.string().min(4).max(8),
+   100→      deviceName: z.string().max(60).optional(),
+   101→      platform: z.string().max(20).optional(),
+   102→    })
+   103→    .parse(body);
+   104→  const result = await auth.verifyEmailOtp(parsed.email, parsed.code, parsed, ctx.ip);
+   105→  const res = ok(result);
+   106→  if (result.status === "ok" && result.accessToken && result.refreshToken) {
+   107→    setAuthCookie(res, "sada_session", result.accessToken, 60 * 30);
+   108→    setAuthCookie(res, "sada_refresh", result.refreshToken, 30 * 86400);
+   109→  }
+   110→  return res;
+   111→}, { auth: false });
+   112→
+   113→router.post("auth/login-password", async (ctx) => {
+   114→  const body = await ctx.json<{ identifier: string; password: string; deviceName?: string; platform?: string }>();
+   115→  const parsed = z
+   116→    .object({
+   117→      identifier: z.string().min(5).max(254),
+   118→      password: z.string().min(1).max(128),
+   119→      deviceName: z.string().max(60).optional(),
+   120→      platform: z.string().max(20).optional(),
+   121→    })
+   122→    .parse(body);
+   123→  const result = await auth.loginPassword(parsed.identifier, parsed.password, parsed, ctx.ip);
+   124→  const res = ok(result);
+   125→  if (result.status === "ok" && result.accessToken && result.refreshToken) {
+   126→    setAuthCookie(res, "sada_session", result.accessToken, 60 * 30);
+   127→    setAuthCookie(res, "sada_refresh", result.refreshToken, 30 * 86400);
+   128→  }
+   129→  return res;
+   130→}, { auth: false });
+   131→
+   132→router.post("auth/refresh", async (ctx) => {
+   133→  const body = await ctx.json<{ refreshToken?: string }>().catch(() => ({ refreshToken: undefined }));
+   134→  const token = body.refreshToken || ctx.cookies["sada_refresh"];
+   135→  if (!token) throw ApiError.unauthorized("No refresh token");
+   136→  const result = await auth.refreshSession(token, ctx.ip);
+   137→  const res = ok(result);
+   138→  setAuthCookie(res, "sada_session", result.accessToken, 60 * 30);
+   139→  setAuthCookie(res, "sada_refresh", result.refreshToken, 30 * 86400);
+   140→  return res;
+   141→}, { auth: false });
+   142→
+   143→router.post("auth/logout", async (ctx) => {
+   144→  const m = me(ctx);
+   145→  await auth.revokeSession(m.userId, m.sessionId, "logout", ctx.ip);
+   146→  const res = ok({ loggedOut: true });
+   147→  res.headers.append("Set-Cookie", clearAuthCookie("sada_session"));
+   148→  res.headers.append("Set-Cookie", clearAuthCookie("sada_refresh"));
+   149→  return res;
+   150→});
+   151→
+   152→router.post("auth/logout-all", async (ctx) => {
+   153→  const m = me(ctx);
+   154→  const count = await auth.revokeAllSessions(m.userId, m.sessionId, ctx.ip);
+   155→  return ok({ revoked: count });
+   156→});
+   157→
+   158→router.get("auth/socket-token", async (ctx) => {
+   159→  const m = me(ctx);
+   160→  const { signSocketToken } = await import("@/lib/server/jwt");
+   161→  return ok({ token: await signSocketToken(m.userId, m.sessionId), realtimePort: process.env.REALTIME_PORT || 3003 });
+   162→});
+   163→
+   164→// 2FA management
+   165→router.post("auth/2fa/setup", async (ctx) => ok(await auth.setupTwofa(me(ctx).userId)));
+   166→router.post("auth/2fa/enable", async (ctx) => {
+   167→  const body = await ctx.json<{ code: string }>();
+   168→  return ok(await auth.enableTwofa(me(ctx).userId, body.code));
+   169→});
+   170→router.post("auth/2fa/disable", async (ctx) => {
+   171→  const body = await ctx.json<{ code: string }>();
+   172→  return ok(await auth.disableTwofa(me(ctx).userId, body.code));
+   173→});
+   174→
+   175→// account password (set first time / change — used for password login)
+   176→router.get("users/me/password", async (ctx) => {
+   177→  return ok(await users.hasPassword(me(ctx).userId));
+   178→});
+   179→router.post("users/me/password", async (ctx) => {
+   180→  const body = await ctx.json<{ currentPassword?: string; newPassword: string }>();
+   181→  const parsed = z
+   182→    .object({
+   183→      currentPassword: z.string().min(1).max(128).optional(),
+   184→      newPassword: z.string().min(1).max(128),
+   185→    })
+   186→    .parse(body);
+   187→  return ok(await auth.setPassword(me(ctx).userId, parsed.newPassword, parsed.currentPassword, ctx.ip));
+   188→});
+   189→
+   190→// ---------------- USERS ----------------
+   191→
+   192→router.get("users/me", async (ctx) => {
+   193→  const m = me(ctx);
+   194→  const user = await users.getPublicUser(m.userId, m.userId);
+   195→  const settings = await users.getSettings(m.userId);
+   196→  const privacy = await users.getPrivacy(m.userId);
+   197→  return ok({ ...user, phone: m.user.phone, email: m.user.email, settings, privacy });
+   198→});
+   199→
+   200→router.patch("users/me", async (ctx) => {
+   201→  const m = me(ctx);
+   202→  const body = await ctx.json<Record<string, unknown>>();
+   203→  const patch = z
+   204→    .object({
+   205→      displayName: z.string().min(1).max(64).optional(),
+   206→      bio: z.string().max(280).optional(),
+   207→      username: z.string().regex(/^[a-zA-Z0-9_]{4,32}$/).nullable().optional(),
+   208→      avatarMediaId: z.string().nullable().optional(),
+   209→    })
+   210→    .parse(body);
+   211→  return ok(await users.updateProfile(m.userId, patch));
+   212→});
+   213→
+   214→router.post("users/me/delete", async (ctx) => {
+   215→  const m = me(ctx);
+   216→  return ok(await auth.requestAccountDeletion(m.userId));
+   217→});
+   218→
+   219→router.get("users/me/export", async (ctx) => {
+   220→  const m = me(ctx);
+   221→  const data = await users.exportMyData(m.userId);
+   222→  return new Response(JSON.stringify(data, null, 2), {
+   223→    headers: {
+   224→      "content-type": "application/json",
+   225→      "content-disposition": `attachment; filename="sada-export-${m.userId}.json"`,
+   226→    },
+   227→  });
+   228→});
+   229→
+   230→router.get("users/settings", async (ctx) => ok(await users.getSettings(me(ctx).userId)));
+   231→router.patch("users/settings", async (ctx) => {
+   232→  const m = me(ctx);
+   233→  const body = await ctx.json<Record<string, unknown>>();
+   234→  return ok(await users.updateSettings(m.userId, body));
+   235→});
+   236→
+   237→router.get("users/privacy", async (ctx) => ok(await users.getPrivacy(me(ctx).userId)));
+   238→router.patch("users/privacy", async (ctx) => {
+   239→  const m = me(ctx);
+   240→  const body = await ctx.json<Record<string, unknown>>();
+   241→  return ok(await users.setPrivacy(m.userId, body as Partial<Record<string, string | boolean>>));
+   242→});
+   243→
+   244→router.get("users/search", async (ctx) => {
+   245→  const m = me(ctx);
+   246→  const q = ctx.query.get("q") || "";
+   247→  return ok(await users.searchUsers(m.userId, q));
+   248→});
+   249→
+   250→router.post("users/contacts/sync", async (ctx) => {
+   251→  const m = me(ctx);
+   252→  const body = await ctx.json<{ phoneHashes: string[]; names?: Record<string, string> }>();
+   253→  return ok(await users.syncContacts(m.userId, body));
+   254→});
+   255→router.get("users/contacts", async (ctx) => ok(await users.listContacts(me(ctx).userId)));
+   256→
+   257→router.post("users/:id/block", async (ctx) => ok(await users.blockUser(me(ctx).userId, ctx.params.id)));
+   258→router.post("users/:id/unblock", async (ctx) => ok(await users.unblockUser(me(ctx).userId, ctx.params.id)));
+   259→router.get("users/blocked", async (ctx) => ok(await users.listBlocked(me(ctx).userId)));
+   260→router.get("users/:id", async (ctx) => ok(await users.getPublicUser(me(ctx).userId, ctx.params.id)));
+   261→
+   262→// ---------------- CHATS ----------------
+   263→
+   264→router.get("chats", async (ctx) => {
+   265→  const m = me(ctx);
+   266→  return ok(
+   267→    await chats.listChats(m.userId, {
+   268→      folderId: ctx.query.get("folderId") || undefined,
+   269→      archived: ctx.query.get("archived") === "true",
+   270→      query: ctx.query.get("q") || undefined,
+   271→    })
+   272→  );
+   273→});
+   274→
+   275→router.post("chats/private", async (ctx) => {
+   276→  const m = me(ctx);
+   277→  const body = await ctx.json<{ userId: string }>();
+   278→  return ok(await chats.createPrivateChat(m.userId, body.userId));
+   279→});
+   280→
+   281→router.post("chats/group", async (ctx) => {
+   282→  const m = me(ctx);
+   283→  const body = await ctx.json<chats.CreateGroupInput>();
+   284→  return ok(await chats.createGroupOrChannel(m.userId, { ...body, type: "group" }));
+   285→});
+   286→
+   287→router.post("chats/channel", async (ctx) => {
+   288→  const m = me(ctx);
+   289→  const body = await ctx.json<chats.CreateGroupInput>();
+   290→  return ok(await chats.createGroupOrChannel(m.userId, { ...body, type: "channel" }));
+   291→});
+   292→
+   293→router.post("chats/saved", async (ctx) => ok(await chats.getOrCreateSavedChat(me(ctx).userId)));
+   294→
+   295→router.get("chats/:id", async (ctx) => ok(await chats.getChatCard(me(ctx).userId, ctx.params.id)));
+   296→
+   297→router.patch("chats/:id", async (ctx) => {
+   298→  const m = me(ctx);
+   299→  const body = await ctx.json<Record<string, unknown>>();
+   300→  return ok(
+   301→    await chats.updateChatInfo(m.userId, ctx.params.id, {
+   302→      title: body.title as string | undefined,
+   303→      about: body.about as string | undefined,
+   304→      avatarMediaId: body.avatarMediaId as string | null | undefined,
+   305→      username: body.username as string | null | undefined,
+   306→      isPublic: body.isPublic as boolean | undefined,
+   307→      slowModeSeconds: body.slowModeSeconds as number | undefined,
+   308→      defaultPerms: body.defaultPerms as Record<string, boolean> | undefined,
+   309→    })
+   310→  );
+   311→});
+   312→
+   313→router.delete("chats/:id", async (ctx) => ok(await chats.leaveChat(me(ctx).userId, ctx.params.id)));
+   314→
+   315→router.post("chats/:id/members", async (ctx) => {
+   316→  const m = me(ctx);
+   317→  const body = await ctx.json<{ userIds: string[] }>();
+   318→  return ok(await chats.addMembers(m.userId, ctx.params.id, body.userIds || []));
+   319→});
+   320→router.get("chats/:id/members", async (ctx) => {
+   321→  const m = me(ctx);
+   322→  return ok(await chats.listMembers(m.userId, ctx.params.id, { limit: Number(ctx.query.get("limit")) || 50, offset: Number(ctx.query.get("offset")) || 0 }));
+   323→});
+   324→router.delete("chats/:id/members/:userId", async (ctx) => ok(await chats.removeMember(me(ctx).userId, ctx.params.id, ctx.params.userId)));
+   325→router.post("chats/:id/members/:userId/role", async (ctx) => {
+   326→  const body = await ctx.json<{ role: string }>();
+   327→  return ok(await chats.setMemberRole(me(ctx).userId, ctx.params.id, ctx.params.userId, body.role));
+   328→});
+   329→router.post("chats/:id/members/:userId/restrict", async (ctx) => {
+   330→  const body = await ctx.json<{ days: number | null }>();
+   331→  const until = body.days ? new Date(Date.now() + body.days * 86400_000) : null;
+   332→  return ok(await chats.restrictMember(me(ctx).userId, ctx.params.id, ctx.params.userId, until));
+   333→});
+   334→router.post("chats/:id/leave", async (ctx) => ok(await chats.leaveChat(me(ctx).userId, ctx.params.id)));
+   335→
+   336→router.post("chats/:id/flags", async (ctx) => {
+   337→  const m = me(ctx);
+   338→  const body = await ctx.json<{ pinned?: boolean; archived?: boolean; mutedUntil?: string | null }>();
+   339→  return ok(
+   340→    await chats.setChatFlags(m.userId, ctx.params.id, {
+   341→      pinned: body.pinned,
+   342→      archived: body.archived,
+   343→      mutedUntil: body.mutedUntil ? new Date(body.mutedUntil) : body.mutedUntil === null ? null : undefined,
+   344→    })
+   345→  );
+   346→});
+   347→
+   348→router.post("chats/:id/read", async (ctx) => {
+   349→  const m = me(ctx);
+   350→  const body = await ctx.json<{ upToSeq: number }>();
+   351→  return ok(await chats.markRead(m.userId, ctx.params.id, body.upToSeq));
+   352→});
+   353→
+   354→router.get("chats/:id/draft", async (ctx) => {
+   355→  await chats.requireMembership(me(ctx).userId, ctx.params.id);
+   356→  const d = await (await import("@/lib/db")).db.draft.findUnique({ where: { chatId_userId: { chatId: ctx.params.id, userId: me(ctx).userId } } });
+   357→  return ok({ text: d?.text || "", replyToId: d?.replyToId || null });
+   358→});
+   359→router.post("chats/:id/draft", async (ctx) => {
+   360→  const m = me(ctx);
+   361→  const body = await ctx.json<{ text: string; replyToId?: string | null }>();
+   362→  return ok(await chats.setDraft(m.userId, ctx.params.id, body.text || "", body.replyToId));
+   363→});
+   364→
+   365→router.post("chats/:id/invites", async (ctx) => {
+   366→  const m = me(ctx);
+   367→  const body = await ctx.json<{ expiresInDays?: number; usageLimit?: number }>().catch(() => ({}));
+   368→  return ok(await chats.createInvite(m.userId, ctx.params.id, body));
+   369→});
+   370→router.get("chats/:id/invites", async (ctx) => ok(await chats.listInvites(me(ctx).userId, ctx.params.id)));
+   371→router.post("invites/:inviteId/revoke", async (ctx) => ok(await chats.revokeInvite(me(ctx).userId, ctx.params.inviteId)));
+   372→router.get("invites/:code", async (ctx) => ok(await chats.getInviteInfo(ctx.params.code)), { auth: false });
+   373→router.post("invites/:code/join", async (ctx) => ok(await chats.joinByInvite(me(ctx).userId, ctx.params.code)));
+   374→
+   375→router.get("chats/:id/join-requests", async (ctx) => ok(await chats.listJoinRequests(me(ctx).userId, ctx.params.id)));
+   376→router.post("join-requests/:requestId", async (ctx) => {
+   377→  const body = await ctx.json<{ approve: boolean }>();
+   378→  return ok(await chats.handleJoinRequest(me(ctx).userId, ctx.params.requestId, body.approve));
+   379→});
+   380→
+   381→router.get("chats/public", async (ctx) => ok(await chats.searchPublicChats(ctx.query.get("q") || "")));
+   382→router.post("chats/public/:username/join", async (ctx) => ok(await chats.joinPublicChat(me(ctx).userId, ctx.params.username)));
+   383→
+   384→// folders
+   385→router.get("folders", async (ctx) => ok(await chats.listFolders(me(ctx).userId)));
+   386→router.post("folders", async (ctx) => {
+   387→  const body = await ctx.json<{ name: string; icon?: string }>();
+   388→  return ok(await chats.createFolder(me(ctx).userId, body.name, body.icon));
+   389→});
+   390→router.patch("folders/:id", async (ctx) => {
+   391→  const body = await ctx.json<{ name?: string; icon?: string; chatIds?: string[] }>();
+   392→  return ok(await chats.updateFolder(me(ctx).userId, ctx.params.id, body));
+   393→});
+   394→router.delete("folders/:id", async (ctx) => ok(await chats.deleteFolder(me(ctx).userId, ctx.params.id)));
+   395→
+   396→// ---------------- MESSAGES ----------------
+   397→
+   398→router.get("chats/:id/messages", async (ctx) => {
+   399→  const m = me(ctx);
+   400→  return ok(
+   401→    await messages.listMessages(m.userId, ctx.params.id, {
+   402→      before: ctx.query.get("before") ? Number(ctx.query.get("before")) : undefined,
+   403→      after: ctx.query.get("after") ? Number(ctx.query.get("after")) : undefined,
+   404→      limit: ctx.query.get("limit") ? Number(ctx.query.get("limit")) : undefined,
+   405→    })
+   406→  );
+   407→});
+   408→
+   409→router.post("chats/:id/messages", async (ctx) => {
+   410→  const m = me(ctx);
+   411→  enforceRateLimit("messages:send", m.userId);
+   412→  const body = await ctx.json<Record<string, unknown>>();
+   413→  const input = z
+   414→    .object({
+   415→      text: z.string().max(4096).optional(),
+   416→      clientMsgId: z.string().max(64).optional(),
+   417→      replyToId: z.string().max(64).optional(),
+   418→      attachments: z
+   419→        .array(z.object({ mediaId: z.string(), kind: z.string().optional(), meta: z.record(z.string(), z.unknown()).optional(), filename: z.string().optional() }))
+   420→        .max(10)
+   421→        .optional(),
+   422→      scheduledAt: z.string().optional(),
+   423→      forwardOf: z.object({ chatId: z.string(), messageId: z.string() }).optional(),
+   424→    })
+   425→    .parse(body);
+   426→  return ok(await messages.sendMessage(m.userId, ctx.params.id, input));
+   427→});
+   428→
+   429→router.get("messages/:id", async (ctx) => {
+   430→  const m = me(ctx);
+   431→  const msg = await (await import("@/lib/db")).db.message.findUnique({ where: { id: ctx.params.id } });
+   432→  if (!msg) throw ApiError.notFound("Message not found");
+   433→  return ok((await messages.listMessages(m.userId, msg.chatId, { after: msg.seq - 1, limit: 1 })).items[0]);
+   434→});
+   435→
+   436→router.patch("messages/:id", async (ctx) => {
+   437→  const body = await ctx.json<{ text: string }>();
+   438→  return ok(await messages.editMessage(me(ctx).userId, ctx.params.id, body.text));
+   439→});
+   440→router.delete("messages/:id", async (ctx) => ok(await messages.deleteMessage(me(ctx).userId, ctx.params.id)));
+   441→router.post("messages/:id/reactions", async (ctx) => {
+   442→  const body = await ctx.json<{ emoji: string | null }>();
+   443→  return ok(await messages.setReaction(me(ctx).userId, ctx.params.id, body.emoji));
+   444→});
+   445→router.post("messages/:id/pin", async (ctx) => {
+   446→  const body = await ctx.json<{ pinned: boolean }>();
+   447→  return ok(await messages.pinMessage(me(ctx).userId, ctx.params.id, body.pinned));
+   448→});
+   449→router.get("chats/:id/pinned", async (ctx) => ok(await messages.listPinned(me(ctx).userId, ctx.params.id)));
+   450→router.post("messages/forward", async (ctx) => {
+   451→  const body = await ctx.json<{ messageIds: string[]; chatIds: string[] }>();
+   452→  return ok(await messages.forwardMessages(me(ctx).userId, body.messageIds, body.chatIds));
+   453→});
+   454→router.get("messages/:id/comments", async (ctx) => {
+   455→  const m = me(ctx);
+   456→  return ok(await messages.listComments(m.userId, ctx.params.id, { before: ctx.query.get("before") ? Number(ctx.query.get("before")) : undefined }));
+   457→});
+   458→router.get("search/messages", async (ctx) => {
+   459→  const m = me(ctx);
+   460→  return ok(await messages.searchMessages(m.userId, ctx.query.get("q") || "", ctx.query.get("chatId") || undefined));
+   461→});
+   462→router.get("search/global", async (ctx) => {
+   463→  const m = me(ctx);
+   464→  const q = ctx.query.get("q") || "";
+   465→  const [foundUsers, foundChats, foundMessages] = await Promise.all([
+   466→    users.searchUsers(m.userId, q),
+   467→    chats.searchPublicChats(q),
+   468→    messages.searchMessages(m.userId, q, undefined, 15),
+   469→  ]);
+   470→  return ok({ users: foundUsers, chats: foundChats, messages: foundMessages });
+   471→});
+   472→
+   473→// ---------------- MEDIA ----------------
+   474→
+   475→router.post("media/upload-session", async (ctx) => {
+   476→  const m = me(ctx);
+   477→  const body = await ctx.json<{ kind: string; filename: string; mime?: string; size: number; checksum?: string; partCount?: number }>();
+   478→  return ok(await mediaSvc.createUploadSession(m.userId, body));
+   479→});
+   480→
+   481→router.put("media/upload/:id", async (ctx) => {
+   482→  const m = me(ctx);
+   483→  const part = ctx.query.get("part") ? Number(ctx.query.get("part")) : 1;
+   484→  const bytes = await ctx.bytes();
+   485→  return ok(await mediaSvc.putUploadPart(m.userId, ctx.params.id, bytes, part));
+   486→});
+   487→
+   488→router.post("media/upload/:id/abort", async (ctx) => ok(await mediaSvc.abortUpload(me(ctx).userId, ctx.params.id)));
+   489→router.post("media/upload/:id/complete", async (ctx) => ok(await mediaSvc.completeUpload(me(ctx).userId, ctx.params.id)));
+   490→
+   491→// signed media access (spec §8-9) — public route, HMAC-verified
+   492→router.get("media/file", async (ctx) => {
+   493→  const p = {
+   494→    m: ctx.query.get("m") || "",
+   495→    v: ctx.query.get("v") || "original",
+   496→    u: ctx.query.get("u") || "",
+   497→    e: ctx.query.get("e") || "",
+   498→    s: ctx.query.get("s") || "",
+   499→  };
+   500→  let scope;
+   501→  try {
+   502→    scope = verifyMediaUrl(p);
+   503→  } catch (e) {
+   504→    throw new ApiError(403, "INVALID_SIGNATURE", e instanceof Error && e.message === "expired" ? "URL expired" : "Invalid signature");
+   505→  }
+   506→  return mediaSvc.serveMedia(p, ctx.req.headers.get("range"));
+   507→}, { auth: false });
+   508→
+   509→// issue a signed URL for a media the requester may access (avatars for all
+   510→// authenticated users; other media require ownership or chat membership)
+   511→router.get("media/signed", async (ctx) => {
+   512→  const m = me(ctx);
+   513→  const mediaId = ctx.query.get("m") || "";
+   514→  const variant = ctx.query.get("v") || "original";
+   515→  const url = await mediaSvc.issueSignedUrl(m.userId, mediaId, variant);
+   516→  return ok({ url });
+   517→});
+   518→
+   519→router.get("media/stats", async (ctx) => ok(await mediaSvc.storageStats(me(ctx).userId)));
+   520→
+   521→// ---------------- SYNC (spec §33) ----------------
+   522→
+   523→router.get("sync", async (ctx) => {
+   524→  const m = me(ctx);
+   525→  const since = Number(ctx.query.get("since") || 0);
+   526→  return ok(await sync.getSyncEvents(m.userId, since));
+   527→});
+   528→router.get("sync/cursor", async (ctx) => ok({ cursor: await sync.getLatestSeq() }));
+   529→router.post("sync/cursor", async (ctx) => {
+   530→  const m = me(ctx);
+   531→  const body = await ctx.json<{ seq: number }>();
+   532→  return ok(await sync.updateDeviceCursor(m.sessionId, body.seq));
+   533→});
+   534→
+   535→// ---------------- NOTIFICATIONS ----------------
+   536→
+   537→router.get("notifications", async (ctx) => {
+   538→  const m = me(ctx);
+   539→  return ok(await notif.listNotifications(m.userId, { unreadOnly: ctx.query.get("unread") === "true" }));
+   540→});
+   541→router.post("notifications/read", async (ctx) => {
+   542→  const m = me(ctx);
+   543→  const body = await ctx.json<{ ids?: string[] }>().catch(() => ({ ids: undefined }));
+   544→  return ok(await notif.markNotificationsRead(m.userId, body.ids));
+   545→});
+   546→router.get("notifications/prefs", async (ctx) => ok(await notif.getNotifPrefs(me(ctx).userId)));
+   547→router.patch("notifications/prefs", async (ctx) => {
+   548→  const m = me(ctx);
+   549→  const body = await ctx.json<Record<string, unknown>>();
+   550→  return ok(await notif.setNotifPrefs(m.userId, body as never));
+   551→});
+   552→router.post("notifications/push/subscribe", async (ctx) => {
+   553→  const m = me(ctx);
+   554→  const body = await ctx.json<{ endpoint: string; keys: { p256dh: string; auth: string } }>();
+   555→  return ok(await notif.subscribePush(m.userId, body, m.sessionId));
+   556→});
+   557→router.post("notifications/push/unsubscribe", async (ctx) => {
+   558→  const m = me(ctx);
+   559→  const body = await ctx.json<{ endpoint: string }>();
+   560→  return ok(await notif.unsubscribePush(m.userId, body.endpoint));
+   561→});
+   562→router.post("notifications/fcm/register", async (ctx) => {
+   563→  const m = me(ctx);
+   564→  const body = await ctx.json<{ token: string }>();
+   565→  return ok(await notif.registerFcmToken(m.userId, m.sessionId, body.token));
+   566→});
+   567→router.get("notifications/vapid-key", async (ctx) => ok({ publicKey: notif.vapidPublicKeyForClient() }), { auth: false });
+   568→
+   569→// ---------------- SESSIONS ----------------
+   570→
+   571→router.get("sessions", async (ctx) => ok(await auth.listSessions(me(ctx).userId, me(ctx).sessionId)));
+   572→router.post("sessions/:id/revoke", async (ctx) => {
+   573→  const m = me(ctx);
+   574→  return ok(await auth.revokeSession(m.userId, ctx.params.id, "user-revoked", ctx.ip));
+   575→});
+   576→router.post("sessions/revoke-all", async (ctx) => {
+   577→  const m = me(ctx);
+   578→  return ok({ revoked: await auth.revokeAllSessions(m.userId, m.sessionId, ctx.ip) });
+   579→});
+   580→
+   581→// ---------------- MODERATION (spec §22) ----------------
+   582→
+   583→router.post("reports", async (ctx) => {
+   584→  const m = me(ctx);
+   585→  const body = await ctx.json<{ targetType: "user" | "message" | "chat"; targetId: string; category: string; description?: string }>();
+   586→  return ok(await moderation.createReport(m.userId, body));
+   587→});
+   588→
+   589→// ---------------- ADMIN (separate auth — spec §37) ----------------
+   590→
+   591→router.post("admin/login", async (ctx) => {
+   592→  await bootstrapAdmin();
+   593→  const body = await ctx.json<{ username: string; password: string; totp?: string }>();
+   594→  const result = await adminSvc.adminLogin(body.username, body.password, body.totp, ctx.ip);
+   595→  const res = ok(result);
+   596→  setAuthCookie(res, "sada_admin", result.token, 8 * 3600);
+   597→  return res;
+   598→}, { auth: false });
+   599→
+   600→router.get("admin/me", async (ctx) => {
+   601→  const admin = await adminSvc.requireAdmin(ctx.req, ctx.cookies);
+   602→  return ok({ id: admin.id, username: admin.username, role: admin.role, totpEnabled: admin.totpEnabled });
+   603→});
+   604→
+   605→router.get("admin/stats", async (ctx) => {
+   606→  await adminSvc.requireAdmin(ctx.req, ctx.cookies);
+   607→  return ok(await adminSvc.getStats());
+   608→});
+   609→router.get("admin/users", async (ctx) => {
+   610→  await adminSvc.requireAdmin(ctx.req, ctx.cookies);
+   611→  return ok(await adminSvc.searchUsers(ctx.query.get("q") || ""));
+   612→});
+   613→router.post("admin/users/:id/ban", async (ctx) => {
+   614→  const admin = await adminSvc.requireAdmin(ctx.req, ctx.cookies);
+   615→  const body = await ctx.json<{ days: number | null; reason?: string }>();
+   616→  return ok(await adminSvc.banUser(admin.id, ctx.params.id, body.days, body.reason || ""));
+   617→});
+   618→router.get("admin/reports", async (ctx) => {
+   619→  await adminSvc.requireAdmin(ctx.req, ctx.cookies);
+   620→  return ok(await adminSvc.listReports(ctx.query.get("status") || "open"));
+   621→});
+   622→router.post("admin/reports/:id/resolve", async (ctx) => {
+   623→  const admin = await adminSvc.requireAdmin(ctx.req, ctx.cookies);
+   624→  const body = await ctx.json<{ resolution: string; action?: "none" | "ban_user" | "delete_message" | "delete_chat"; targetId?: string }>();
+   625→  return ok(await adminSvc.resolveReport(admin.id, ctx.params.id, body.resolution, body.action, body.targetId));
+   626→});
+   627→router.get("admin/chats", async (ctx) => {
+   628→  await adminSvc.requireAdmin(ctx.req, ctx.cookies);
+   629→  return ok(await adminSvc.listChatsAdmin(ctx.query.get("type") || undefined));
+   630→});
+   631→router.post("admin/chats/:id/delete", async (ctx) => {
+   632→  const admin = await adminSvc.requireAdmin(ctx.req, ctx.cookies);
+   633→  const body = await ctx.json<{ reason?: string }>().catch(() => ({ reason: "" }));
+   634→  return ok(await adminSvc.deleteChatAdmin(admin.id, ctx.params.id, body.reason || ""));
+   635→});
+   636→router.get("admin/audit-logs", async (ctx) => {
+   637→  await adminSvc.requireAdmin(ctx.req, ctx.cookies);
+   638→  return ok(await adminSvc.listAuditLogs(Number(ctx.query.get("limit")) || 100, ctx.query.get("action") || undefined));
+   639→});
+   640→
+   641→// ---------------- META ----------------
+   642→
+   643→router.get("meta", async () => {
+   644→  return ok({
+   645→    name: "Sada Messenger API",
+   646→    version: "v1",
+   647→    stickers: DEFAULT_STICKERS,
+   648→    limits: { maxMessageLen: 4096, maxFileBytes: 512 * 1024 * 1024 },
+   649→    otpDevEcho: env.OTP_DEV_ECHO,
+   650→  });
+   651→}, { auth: false });
+   652→
+   653→router.get("health", async () => {
+   654→  const { db } = await import("@/lib/db");
+   655→  await db.$queryRaw`SELECT 1`;
+   656→  return ok({ status: "healthy", db: "up", ts: new Date().toISOString() });
+   657→}, { auth: false });
+   658→
+   659→export const GET = createApiHandler(router);
+   660→export const POST = createApiHandler(router);
+   661→export const PATCH = createApiHandler(router);
+   662→export const PUT = createApiHandler(router);
+   663→export const DELETE = createApiHandler(router);
+   664→

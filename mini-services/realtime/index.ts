@@ -25,6 +25,20 @@ const httpServer = createServer((req, res) => {
     res.end(JSON.stringify({ ok: true, service: "realtime", sockets: io.engine.clientsCount }));
     return;
   }
+  // single request listener: the old structure had BOTH this callback and a
+  // second httpServer.on("request") handler — the first one 404'd
+  // /internal/emit before the second could run, so every instant push died
+  // with ERR_HTTP_HEADERS_SENT and live delivery silently degraded to the
+  // 4s tail-follower. Routing lives here now.
+  if (req.method === "POST" && req.url?.startsWith("/internal/emit")) {
+    handleInternalEmit(req, res).catch(() => {
+      if (!res.headersSent) {
+        res.writeHead(500);
+      }
+      res.end();
+    });
+    return;
+  }
   res.writeHead(404);
   res.end();
 });
@@ -36,6 +50,52 @@ const io = new Server(httpServer, {
   transports: ["websocket", "polling"],
   maxHttpBufferSize: 1e6,
 });
+
+// ---------- event fan-out (chat members via user rooms) ----------
+// MESSAGE_CREATED / CHANNEL_POSTED are delivered to the user:<id> room of
+// EVERY current member — not the chat room. Reason: sockets only join
+// chat rooms at connect/subscribe time, so a brand-new private chat would
+// never push live to its recipient (they only discovered it via /sync on
+// reconnect). User rooms always work; membership cache TTL 30s with the
+// /sync cursor as the safety net for mid-TTL member changes.
+const membersCache = new Map<string, { ids: string[]; ts: number }>();
+async function membersOfChat(chatId: string): Promise<string[]> {
+  const c = membersCache.get(chatId);
+  if (c && Date.now() - c.ts < 30_000) return c.ids;
+  const [mems, subs] = await Promise.all([
+    db.chatMember.findMany({ where: { chatId, leftAt: null }, select: { userId: true } }),
+    db.channelMember.findMany({ where: { chatId, leftAt: null }, select: { userId: true } }),
+  ]);
+  const ids = [...new Set([...mems.map((m) => m.userId), ...subs.map((s) => s.userId)])];
+  membersCache.set(chatId, { ids, ts: Date.now() });
+  return ids;
+}
+
+interface WireEvent {
+  seq: number;
+  type: string;
+  chatId?: string | null;
+  targetUserId?: string | null;
+  actorId?: string | null;
+  payloadJson?: string;
+  payload?: unknown;
+  createdAt?: string;
+}
+
+async function emitWire(wire: WireEvent) {
+  if (wire.type === Events.MESSAGE_CREATED || wire.type === Events.CHANNEL_POSTED) {
+    if (wire.chatId) {
+      for (const uid of await membersOfChat(wire.chatId)) {
+        io.to(`user:${uid}`).emit("event", wire);
+      }
+    } else if (wire.targetUserId) {
+      io.to(`user:${wire.targetUserId}`).emit("event", wire);
+    }
+    return;
+  }
+  if (wire.chatId) io.to(`chat:${wire.chatId}`).emit("event", wire);
+  if (wire.targetUserId) io.to(`user:${wire.targetUserId}`).emit("event", wire);
+}
 
 // ---------- presence (ephemeral, in-memory — spec §25) ----------
 interface Presence {
@@ -223,17 +283,6 @@ io.on("connection", async (socket) => {
 
 // ---------- internal emit API (HMAC + replay protection) ----------
 
-interface WireEvent {
-  seq: number;
-  type: string;
-  chatId?: string | null;
-  targetUserId?: string | null;
-  actorId?: string | null;
-  payloadJson: string;
-  payload?: unknown;
-  createdAt: string;
-}
-
 async function handleInternalEmit(req: any, res: any) {
   let body = "";
   for await (const chunk of req) body += chunk;
@@ -262,22 +311,22 @@ async function handleInternalEmit(req: any, res: any) {
         payload = {};
       }
     }
-    const wire = { seq: ev.seq, type: ev.type, chatId: ev.chatId, actorId: ev.actorId, payload, createdAt: ev.createdAt };
-    if (ev.chatId) {
-      io.to(`chat:${ev.chatId}`).emit("event", wire);
-      delivered++;
-    }
-    if (ev.targetUserId) {
-      io.to(`user:${ev.targetUserId}`).emit("event", wire);
-      delivered++;
-    }
+    const wire = { seq: ev.seq, type: ev.type, chatId: ev.chatId, targetUserId: ev.targetUserId, actorId: ev.actorId, payload, createdAt: ev.createdAt };
+    await emitWire(wire);
+    delivered++;
+    // advance the tail cursor: the 4s tail-follower must NOT re-broadcast
+    // events that the instant push already delivered (duplicate emission)
+    tailSeq = Math.max(tailSeq, ev.seq || 0);
   }
   res.writeHead(200, { "content-type": "application/json" });
   res.end(JSON.stringify({ ok: true, delivered }));
 }
 
 // tail-follower: durable-event fallback so emit failures never lose data
+// (only re-broadcasts events the instant push missed — the cursor advances
+// in handleInternalEmit too, so live-delivered events are never doubled)
 let tailSeq = 0;
+
 async function tailEvents() {
   try {
     if (tailSeq === 0) {
@@ -294,23 +343,13 @@ async function tailEvents() {
       } catch {
         /* ignore */
       }
-      const wire = { seq: ev.seq, type: ev.type, chatId: ev.chatId, actorId: ev.actorId, payload, createdAt: ev.createdAt };
-      if (ev.chatId) io.to(`chat:${ev.chatId}`).emit("event", wire);
-      if (ev.targetUserId) io.to(`user:${ev.targetUserId}`).emit("event", wire);
+      const wire = { seq: ev.seq, type: ev.type, chatId: ev.chatId, targetUserId: ev.targetUserId, actorId: ev.actorId, payload, createdAt: ev.createdAt };
+      await emitWire(wire);
     }
   } catch {
     /* db busy — retry next tick */
   }
 }
-
-httpServer.on("request", (req, res) => {
-  if (req.method === "POST" && req.url?.startsWith("/internal/emit")) {
-    handleInternalEmit(req, res).catch(() => {
-      res.writeHead(500);
-      res.end();
-    });
-  }
-});
 
 setInterval(tailEvents, 4000);
 

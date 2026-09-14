@@ -213,7 +213,15 @@ router.patch("users/me", async (ctx) => {
 
 router.post("users/me/delete", async (ctx) => {
   const m = me(ctx);
-  return ok(await auth.requestAccountDeletion(m.userId));
+  const body = await ctx.json<{ password?: string }>().catch(() => ({ password: undefined }));
+  return ok(await users.deleteMyAccount(m.userId, body.password, ctx.ip));
+});
+
+// live username availability (profile setup / settings)
+router.get("users/username-available", async (ctx) => {
+  const m = me(ctx);
+  enforceRateLimit("users:username-check", m.userId);
+  return ok(await users.usernameAvailable(ctx.query.get("u") || ""));
 });
 
 router.get("users/me/export", async (ctx) => {

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { ApiError } from "../errors";
 import { Limits, PRIVACY_VISIBILITY } from "@/lib/shared/constants";
 import { enforceRateLimit } from "../security/rate-limit";
+import { verifyPassword } from "../security/password";
 import { appendAudit } from "./audit.service";
 import { phoneHash } from "./auth.service";
 
@@ -78,6 +79,21 @@ export async function getPublicUser(viewerId: string, userId: string): Promise<P
 const USERNAME_RE = /^[a-zA-Z0-9_]{4,32}$/;
 const RESERVED = new Set(["admin", "support", "moderation", "sada", "api", "system", "root", "official", "staff", "null", "undefined"]);
 
+/**
+ * Live username availability check (profile setup + settings).
+ * Usernames are stored lowercase → uniqueness is CASE-INSENSITIVE:
+ * once "MGO3" is taken, "mgo3", "Mgo3"… are all blocked — forever,
+ * because deleted accounts keep their username reserved (tombstone).
+ */
+export async function usernameAvailable(raw: string) {
+  const uname = raw.trim().toLowerCase();
+  if (!USERNAME_RE.test(uname)) return { available: false, reason: "invalid" as const };
+  if (RESERVED.has(uname)) return { available: false, reason: "reserved" as const };
+  const existing = await db.user.findUnique({ where: { username: uname }, select: { id: true } });
+  if (existing) return { available: false, reason: "taken" as const };
+  return { available: true, reason: null };
+}
+
 export async function updateProfile(userId: string, input: {
   displayName?: string;
   bio?: string;
@@ -97,6 +113,9 @@ export async function updateProfile(userId: string, input: {
   }
   if (input.username !== undefined) {
     if (input.username === null) {
+      // Username is mandatory once set — clearing is not allowed.
+      const cur = await db.user.findUnique({ where: { id: userId }, select: { username: true } });
+      if (cur?.username) throw ApiError.badRequest("Username is permanent once set");
       data.username = null;
     } else {
       const uname = input.username.toLowerCase();
@@ -121,7 +140,16 @@ export async function updateProfile(userId: string, input: {
       data.avatarMediaId = input.avatarMediaId;
     }
   }
-  const user = await db.user.update({ where: { id: userId }, data });
+  let user;
+  try {
+    user = await db.user.update({ where: { id: userId }, data });
+  } catch (e: unknown) {
+    // concurrent claim lost the unique-index race → clear conflict, not a 500
+    if (typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "P2002") {
+      throw ApiError.conflict("USERNAME_TAKEN", "Username already taken");
+    }
+    throw e;
+  }
   return { id: user.id, displayName: user.displayName, username: user.username, bio: user.bio, avatarMediaId: user.avatarMediaId };
 }
 
@@ -311,4 +339,65 @@ export async function exportMyData(userId: string) {
     blocked: blocked.map((b) => b.id),
     contacts,
   };
+}
+
+// ---------- account deletion (spec §49) ----------
+
+/**
+ * REAL, immediate account deletion (the old flow enqueued a job no worker
+ * ever processed — the button was a no-op).
+ *
+ * Tombstone semantics:
+ *  - all PII wiped (phone, email, password, 2FA, bio, avatar)
+ *  - sessions revoked → every device logged out instantly (resolveAuth also
+ *    hard-blocks deletedAt rows, so even unexpired access tokens die)
+ *  - username is deliberately KEPT on the tombstone row → the unique index
+ *    reserves it FOREVER; nobody can ever register it again (user request)
+ *  - sent messages remain (anonymized: display name becomes "حساب محذوف")
+ */
+export async function deleteMyAccount(userId: string, password: string | undefined, ip?: string) {
+  const user = await db.user.findUnique({ where: { id: userId } });
+  if (!user || user.deletedAt) throw ApiError.notFound("User not found");
+
+  // Accounts protected by a password must confirm it (anti-tamper).
+  if (user.passwordHash) {
+    const valid = password && verifyPassword(password, user.passwordHash);
+    if (!valid) throw ApiError.forbidden("Incorrect password — account not deleted");
+  }
+
+  const now = new Date();
+  await db.$transaction([
+    db.user.update({
+      where: { id: userId },
+      data: {
+        deletedAt: now,
+        displayName: "حساب محذوف",
+        bio: null,
+        avatarMediaId: null,
+        phone: null,
+        phoneHash: null,
+        email: null,
+        emailVerifiedAt: null,
+        passwordHash: null,
+        passwordFailCount: 0,
+        passwordLockedUntil: null,
+        twofaSecret: null,
+        twofaEnabled: false,
+        devicesToken: null,
+        lastSeenAt: null,
+        contactsSyncedAt: null,
+        // username intentionally NOT cleared — reserved forever
+      },
+    }),
+    db.session.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: now, revokedReason: "account-deleted" },
+    }),
+    db.pushSubscription.deleteMany({ where: { userId } }),
+    db.draft.deleteMany({ where: { userId } }),
+    db.notification.deleteMany({ where: { userId } }),
+    db.contact.deleteMany({ where: { ownerId: userId } }),
+  ]);
+  await appendAudit({ actorType: "user", actorId: userId, action: "user.account_deleted", targetType: "user", targetId: userId, detailJson: JSON.stringify({ usernameReserved: user.username }), ip });
+  return { deleted: true };
 }

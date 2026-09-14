@@ -109,7 +109,7 @@ export default function GroupInfo() {
         <h1 className="font-bold">{chat.type === "channel" ? t.channelInfo : t.groupInfo}</h1>
       </header>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-4 space-y-5 max-w-lg mx-auto">
           {/* header card */}
           <div className="flex items-center gap-3">

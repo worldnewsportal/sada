@@ -21,6 +21,17 @@ let socket: Socket | null = null;
 let reconnectAttempts = 0;
 let outboxTimer: ReturnType<typeof setInterval> | null = null;
 
+// event storms (message bursts, member changes) each triggered a full chat
+// list fetch — coalesce them into ONE refresh per 300ms window (speed)
+let chatListRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+function reloadChatListCoalesced() {
+  if (chatListRefreshTimer) return;
+  chatListRefreshTimer = setTimeout(() => {
+    chatListRefreshTimer = null;
+    reloadChatList().catch(() => undefined);
+  }, 300);
+}
+
 function cursor(): number {
   return parseInt(localStorage.getItem(CURSOR_KEY) || "0", 10);
 }
@@ -83,6 +94,17 @@ export async function connectRealtime() {
       if (ev.seq > 0) saveCursor(ev.seq);
       handleLiveEvent(ev);
     });
+
+    // network-level recovery: when the device regains connectivity (wifi/
+    // cellular switch), don't wait for the socket's own backoff — reconnect
+    // immediately and flush whatever was queued while offline
+    if (typeof window !== "undefined" && !(window as unknown as { __sadaOnlineHook?: boolean }).__sadaOnlineHook) {
+      (window as unknown as { __sadaOnlineHook?: boolean }).__sadaOnlineHook = true;
+      window.addEventListener("online", () => {
+        if (!socket?.connected) connectRealtime().catch(() => undefined);
+        flushOutbox();
+      });
+    }
   } catch {
     useStore.getState().setConnectionState("offline");
     // retry with backoff
@@ -137,10 +159,10 @@ async function handleLiveEvent(ev: { seq: number; type: string; chatId?: string;
         // auto-mark read when viewing
         const chat = state.chats.find((c) => c.id === ev.chatId);
         if (chat && chat.lastMessageSeq) {
-          post(`chats/${ev.chatId}/read`, { upToSeq: chat.lastMessageSeq }).then(() => reloadChatList()).catch(() => undefined);
+          post(`chats/${ev.chatId}/read`, { upToSeq: chat.lastMessageSeq }).then(() => reloadChatListCoalesced()).catch(() => undefined);
         }
       } else {
-        reloadChatList().catch(() => undefined);
+        reloadChatListCoalesced();
       }
       break;
     }
@@ -152,10 +174,13 @@ async function handleLiveEvent(ev: { seq: number; type: string; chatId?: string;
     case "MEMBER_ADDED":
     case "MEMBER_REMOVED":
     case "ADMIN_CHANGED":
-    case "MESSAGE_READ":
     case "MESSAGE_DELIVERED": {
-      reloadChatList().catch(() => undefined);
-      if (ev.chatId && s.activeChatId === ev.chatId && ev.type === "MESSAGE_READ") {
+      reloadChatListCoalesced();
+      break;
+    }
+    case "MESSAGE_READ": {
+      reloadChatListCoalesced();
+      if (ev.chatId && s.activeChatId === ev.chatId) {
         reloadChatMessages(ev.chatId, false).catch(() => undefined);
       }
       break;
@@ -267,9 +292,9 @@ export function queueMessage(item: {
 let flushing = false;
 
 export async function flushOutbox() {
-  if (flushing || !useStore.getState().connectionState === false) {
-    /* fallthrough */
-  }
+  // re-entrancy guard only — the old condition here was a broken tautology
+  // (`!state.connectionState === false`) that did nothing; when offline the
+  // POSTs simply fail and items stay queued, which is the correct behavior
   if (flushing) return;
   flushing = true;
   try {
@@ -288,6 +313,14 @@ export async function flushOutbox() {
         const state = useStore.getState();
         state.removeFromOutbox(item.localKey);
         state.upsertMessage(item.chatId, res.message);
+        // drop the optimistic placeholder — it has the localKey id, the real
+        // message has the server id; without this the chat shows BOTH forever
+        useStore.setState((st) => ({
+          messages: {
+            ...st.messages,
+            [item.chatId]: (st.messages[item.chatId] || []).filter((m) => m.id !== item.localKey),
+          },
+        }));
       } catch (e) {
         const code = (e as { code?: string }).code;
         if (code === "FORBIDDEN" || code === "NOT_FOUND") {

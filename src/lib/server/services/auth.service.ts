@@ -223,8 +223,11 @@ export function normalizeEmail(raw: string): string {
  * Request an email code — used for BOTH signup and login:
  *   new email → welcome + activation code (account created on verify)
  *   known email → sign-in code (never reveals existence in the response)
- * Optional password at signup: policy-checked now, hashed, and stored
- * pending INSIDE the OTP row — applied only after successful activation.
+ * Password at signup is MANDATORY (user requirement): policy-checked now,
+ * hashed, and stored pending INSIDE the OTP row — applied only after
+ * successful activation. (intent=login with an unknown email still works
+ * code-only; the profile-completion step then forces setting a password,
+ * so no passwordless account can ever be created either way.)
  */
 export async function requestEmailOtp(
   rawEmail: string,
@@ -239,8 +242,13 @@ export async function requestEmailOtp(
   if (user?.deletedAt) throw ApiError.notFound("Account no longer exists");
   if (user?.bannedUntil && user.bannedUntil > new Date()) throw ApiError.forbidden("Account suspended");
 
-  // Pending password (signup convenience) — validated BEFORE sending mail so
-  // weak passwords fail fast, then stored hashed with the OTP record.
+  // Explicit signup intent REQUIRES a password — fail before sending mail.
+  if (opts.intent === "signup" && !opts.password) {
+    throw ApiError.badRequest("Password is required to create an account");
+  }
+
+  // Pending password (signup) — validated BEFORE sending mail so weak
+  // passwords fail fast, then stored hashed with the OTP record.
   let pendingPasswordHash: string | undefined;
   if (opts.password) {
     const policyError = validateUserPassword(opts.password);

@@ -17,10 +17,11 @@ import { Label } from "@/components/ui/label";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Search as SearchIcon, X as XIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   MoreVertical, Archive, Pin, PinOff, ArchiveRestore, VolumeX, Volume2, Trash2,
-  Plus, Bookmark, CheckCheck, AtSign, FolderPlus,
+  Plus, Bookmark, CheckCheck, AtSign, FolderPlus, ArrowRight,
 } from "lucide-react";
 import type { ChatCard } from "@/lib/server/services/chats.service";
 import type { Folder } from "@prisma/client";
@@ -90,33 +91,37 @@ export default function ChatList() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* header */}
-      <header className="p-3 border-b bg-teal-950 text-teal-50 flex items-center gap-2">
-        <h1 className="font-bold text-lg flex-1 px-1">{showingArchived ? t.archivedChats : t.appName}</h1>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-teal-100 hover:bg-teal-500/20" aria-label={t.newChat}>
-              <Plus className="w-5 h-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setFolderDialog(true)}>
-              <FolderPlus className="w-4 h-4 me-2" /> {t.newFolder}
-            </DropdownMenuItem>
-            <NewChatMenuItems />
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </header>
+      {/* archived context row (only in archive view) */}
+      {showingArchived && (
+        <header className="px-2 py-1.5 border-b bg-muted/40 flex items-center gap-1">
+          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setShowingArchived(false)}>
+            <ArrowRight className="w-4 h-4 rtl:rotate-180 me-1" />
+            {t.archivedChats} ({archivedCount})
+          </Button>
+        </header>
+      )}
 
-      {/* search */}
-      <div className="p-2 border-b">
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={t.searchPlaceholder}
-          className="h-9"
-          aria-label={t.search}
-        />
+      {/* top bar: ONLY search (nav moved to the bottom bar) */}
+      <div className="p-2 border-b bg-background">
+        <div className="relative">
+          <SearchIcon className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" aria-hidden />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t.searchPlaceholder}
+            className="h-10 ps-9 pe-9 rounded-full bg-muted/50 border-0"
+            aria-label={t.search}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute end-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:bg-muted/70"
+              aria-label={t.close}
+            >
+              <XIcon className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* folders */}
@@ -151,7 +156,7 @@ export default function ChatList() {
       )}
 
       {/* list */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div role="list">
           {loading && <p className="p-4 text-center text-muted-foreground text-sm">{t.loading}</p>}
           {!loading && chats.length === 0 && (
@@ -170,6 +175,24 @@ export default function ChatList() {
       </ScrollArea>
 
       <NewFolderDialog open={folderDialog} onClose={() => setFolderDialog(false)} />
+
+      {/* floating action button — new chat / group / channel / folder */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            className="fixed bottom-20 end-4 z-40 md:hidden w-14 h-14 rounded-full shadow-lg bg-teal-600 hover:bg-teal-500 text-white p-0"
+            aria-label={t.newChat}
+          >
+            <Plus className="w-6 h-6" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" side="top" className="mb-2">
+          <DropdownMenuItem onClick={() => setFolderDialog(true)}>
+            <FolderPlus className="w-4 h-4 me-2" /> {t.newFolder}
+          </DropdownMenuItem>
+          <NewChatMenuItems />
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

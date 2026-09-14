@@ -91,7 +91,7 @@ export default function ContactsScreen() {
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.findUsers} className="ps-9 h-9" />
         </div>
       </div>
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         {q.trim().length >= 2 && (
           <section>
             <p className="text-xs font-semibold text-muted-foreground px-3 pt-3 pb-1">{t.people}</p>

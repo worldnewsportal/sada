@@ -95,7 +95,7 @@ export default function AdminPanel() {
           <TabsTrigger value="audit"><ScrollText className="w-4 h-4" /></TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="p-4 max-w-3xl mx-auto">
             <TabsContent value="stats" className="mt-0"><StatsTab /></TabsContent>
             <TabsContent value="users" className="mt-0"><UsersTab /></TabsContent>
