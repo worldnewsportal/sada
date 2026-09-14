@@ -107,7 +107,8 @@ export const useStore = create<MessengerState>((set, get) => ({
   showingArchived: false,
   searchQuery: "",
   setChats: (chats) => set({ chats }),
-  setChatsLoading: (chatsLoading) => set({ chatsLoading }),
+  setChatsLoading: (chatsLoading) =>
+    set((s) => (s.chatsLoading === chatsLoading ? s : { chatsLoading })),
   setFolderId: (folderId) => set({ folderId }),
   setShowingArchived: (showingArchived) => set({ showingArchived }),
   setSearchQuery: (searchQuery) => set({ searchQuery }),
@@ -132,8 +133,10 @@ export const useStore = create<MessengerState>((set, get) => ({
       const merged = [...map.values()].sort((a, b) => a.seq - b.seq);
       return { messages: { ...s.messages, [chatId]: merged } };
     }),
-  setHasMore: (chatId, hasMore) => set((s) => ({ hasMore: { ...s.hasMore, [chatId]: hasMore } })),
-  setLoadingMessages: (loadingMessages) => set({ loadingMessages }),
+  setHasMore: (chatId, hasMore) =>
+    set((s) => (s.hasMore[chatId] === hasMore ? s : { hasMore: { ...s.hasMore, [chatId]: hasMore } })),
+  setLoadingMessages: (loadingMessages) =>
+    set((s) => (s.loadingMessages === loadingMessages ? s : { loadingMessages })),
   upsertMessage: (chatId, msg) =>
     set((s) => {
       const existing = s.messages[chatId] || [];
@@ -167,8 +170,15 @@ export const useStore = create<MessengerState>((set, get) => ({
 
   onlineUsers: new Set<string>(),
   typing: {},
+  // no-op guards: presence/typing events arrive in bursts (connect, sync,
+  // receipts). Re-creating the Set/Record on redundant events churns object
+  // identity → every subscriber's getSnapshot returns a fresh reference
+  // mid-render → React 19 useSyncExternalStore "getSnapshot should be
+  // cached" infinite loop. Returning the SAME state object makes zustand's
+  // Object.is check skip notification entirely.
   setOnline: (userId, online) =>
     set((s) => {
+      if (s.onlineUsers.has(userId) === online) return s;
       const next = new Set(s.onlineUsers);
       if (online) next.add(userId);
       else next.delete(userId);
@@ -176,6 +186,7 @@ export const useStore = create<MessengerState>((set, get) => ({
     }),
   setTyping: (chatId, userId, isTyping) =>
     set((s) => {
+      if ((userId in (s.typing[chatId] || {})) === isTyping) return s;
       const chatTyping = { ...(s.typing[chatId] || {}) };
       if (isTyping) chatTyping[userId] = Date.now();
       else delete chatTyping[userId];
@@ -184,7 +195,8 @@ export const useStore = create<MessengerState>((set, get) => ({
 
   pinnedBar: {},
   unreadNotifications: 0,
-  setUnreadNotifications: (unreadNotifications) => set({ unreadNotifications }),
+  setUnreadNotifications: (unreadNotifications) =>
+    set((s) => (s.unreadNotifications === unreadNotifications ? s : { unreadNotifications })),
 
   call: null,
   setCall: (call) => set({ call }),
@@ -193,7 +205,10 @@ export const useStore = create<MessengerState>((set, get) => ({
   viewParam: undefined,
   setView: (view, viewParam) => set({ view, viewParam }),
   connectionState: "connecting",
-  setConnectionState: (connectionState) => set({ connectionState }),
+  // reconnect storms fire connect/disconnect repeatedly — skip no-op writes
+  // so the state object identity only changes on a real transition.
+  setConnectionState: (connectionState) =>
+    set((s) => (s.connectionState === connectionState ? s : { connectionState })),
   locale: "ar",
   setLocale: (locale) => set({ locale }),
 }));

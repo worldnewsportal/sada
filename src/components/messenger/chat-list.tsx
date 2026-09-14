@@ -31,8 +31,22 @@ const AVATAR_GRADIENTS = [
   "from-orange-400 to-orange-600", "from-lime-400 to-lime-600",
 ];
 
-// stable empty reference for Zustand v5 selectors
-const EMPTY_TYPING: Record<string, number> = {};
+// ChatRow subscribes with PRIMITIVE-returning selectors only (Zustand v5 +
+// React 19 rule): a selector returning the Set/Record container re-runs
+// getSnapshot on identity churn from presence bursts and trips React's
+// "getSnapshot should be cached" loop. Booleans are immune.
+function selectPeerOnline(peerId: string | undefined) {
+  return (s: { onlineUsers: Set<string> }) => (peerId ? s.onlineUsers.has(peerId) : false);
+}
+function selectIsTyping(chatId: string) {
+  return (s: { typing: Record<string, Record<string, number>>; me: { id: string } | null }) => {
+    const m = s.typing[chatId];
+    if (!m) return false;
+    const meId = s.me?.id;
+    for (const u of Object.keys(m)) if (u !== meId) return true;
+    return false;
+  };
+}
 
 export function ChatAvatar({ chat, size = 44 }: { chat: { title?: string; type?: string; avatarMediaId?: string | null }; size?: number }) {
   const letter = (chat.title || "?").trim().charAt(0).toUpperCase();
@@ -162,10 +176,8 @@ export default function ChatList() {
 
 function ChatRow({ chat, onOpen }: { chat: ChatCard; onOpen: () => void }) {
   const t = useT();
-  const me = useStore((s) => s.me);
-  const onlineUsers = useStore((s) => s.onlineUsers);
-  const typingMap = useStore((s) => s.typing[chat.id]) ?? EMPTY_TYPING;
-  const isTyping = Object.keys(typingMap).filter((u) => u !== me?.id).length > 0;
+  const peerOnline = useStore(selectPeerOnline(chat.type === "private" ? chat.peer?.id : undefined));
+  const isTyping = useStore(selectIsTyping(chat.id));
   const muted = chat.mutedUntil && chat.mutedUntil > new Date();
 
   const preview =
@@ -186,7 +198,7 @@ function ChatRow({ chat, onOpen }: { chat: ChatCard; onOpen: () => void }) {
       >
         <div className="relative">
           <ChatAvatar chat={chat} />
-          {chat.type === "private" && onlineUsers.has(chat.peer?.id || "") && (
+          {chat.type === "private" && peerOnline && (
             <span className="absolute bottom-0 end-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-background" aria-label={t.online} />
           )}
         </div>

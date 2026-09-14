@@ -6,7 +6,7 @@
 // ============================================================
 import { beforeAll, afterAll, describe, test, expect } from "bun:test";
 import { PrismaClient } from "@prisma/client";
-import { randomBytes, createHash, randomInt } from "crypto";
+import { randomBytes, createHash, randomInt, createHmac } from "crypto";
 import { ulid } from "../src/lib/ulid";
 import { verifyTotp, generateTotpSecret } from "../src/lib/server/security/totp";
 import { createMediaUrl, verifyMediaUrl, internalSignature, verifyInternalSignature } from "../src/lib/server/security/signed-url";
@@ -114,7 +114,6 @@ describe("TOTP (RFC 6238)", () => {
   test("accepts valid code, rejects invalid", () => {
     const secret = generateTotpSecret();
     // generate expected code with same algorithm at current step
-    const { createHmac } = require("crypto");
     const step = Math.floor(Date.now() / 1000 / 30);
     const buf = Buffer.alloc(8);
     buf.writeBigUInt64BE(BigInt(step));

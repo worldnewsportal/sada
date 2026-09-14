@@ -27,7 +27,6 @@ import type { MessageDTO } from "@/lib/server/services/messages.service";
 
 // stable empty references — Zustand v5 requires selectors to return cached values
 const EMPTY_MESSAGES: MessageDTO[] = [];
-const EMPTY_TYPING: Record<string, number> = {};
 
 export default function ChatView() {
   const t = useT();
@@ -36,8 +35,16 @@ export default function ChatView() {
   const messages = useStore((s) => (s.activeChatId ? s.messages[s.activeChatId] : undefined)) ?? EMPTY_MESSAGES;
   const hasMore = useStore((s) => (s.activeChatId ? !!s.hasMore[s.activeChatId] : false));
   const loading = useStore((s) => s.loadingMessages);
-  const typingMap = useStore((s) => (s.activeChatId ? s.typing[s.activeChatId] : undefined)) ?? EMPTY_TYPING;
-  const me = useStore((s) => s.me);
+  // PRIMITIVE-returning selectors (Zustand v5 + React 19): container-returning
+  // selectors (Set/Record) trip "getSnapshot should be cached" on identity
+  // churn from presence/typing bursts — derive booleans inside the selector.
+  const anyTyping = useStore((s) => {
+    const m = s.activeChatId ? s.typing[s.activeChatId] : undefined;
+    if (!m) return false;
+    const meId = s.me?.id;
+    for (const u of Object.keys(m)) if (u !== meId) return true;
+    return false;
+  });
   const pinned = useStore((s) => (s.activeChatId ? s.pinnedBar[s.activeChatId] : null));
   const setView = useStore((s) => s.setView);
 
@@ -48,7 +55,7 @@ export default function ChatView() {
   const [scheduleAt, setScheduleAt] = useState("");
   const [recording, setRecording] = useState(false);
   const [sendMenuOpen, setSendMenuOpen] = useState(false);
-  const onlineUsers = useStore((s) => s.onlineUsers);
+  const peerOnline = useStore((s) => (chat?.peer ? s.onlineUsers.has(chat.peer.id) : false));
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -88,7 +95,7 @@ export default function ChatView() {
     if (el && stickToBottom.current) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [messages, typingMap]);
+  }, [messages, anyTyping]);
 
   const onScroll = useCallback(async () => {
     const el = scrollRef.current;
@@ -108,7 +115,6 @@ export default function ChatView() {
   if (!activeChatId || !chat) return null;
 
   const isSaved = chat.type === "saved";
-  const typingNames = Object.keys(typingMap).filter((u) => u !== me?.id);
 
   const doSend = async () => {
     const text = draft.trim();
@@ -220,10 +226,10 @@ export default function ChatView() {
           <div className="min-w-0">
             <p className="font-bold text-sm truncate">{chat.title}</p>
             <p className="text-xs text-teal-300 truncate">
-              {typingNames.length > 0
+              {anyTyping
                 ? t.typing
                 : chat.type === "private"
-                  ? chat.peer && onlineUsers.has(chat.peer.id)
+                  ? chat.peer && peerOnline
                     ? t.onlineNow
                     : chat.peer?.lastSeenAt
                       ? `${t.lastSeen} ${new Date(chat.peer.lastSeenAt).toLocaleDateString()}`
@@ -289,7 +295,7 @@ export default function ChatView() {
             onOpenMedia={(mediaId) => { useStore.getState().setView("media-viewer", mediaId); }}
           />
         ))}
-        {typingNames.length > 0 && (
+        {anyTyping && (
           <div className="px-4 py-1">
             <div className="inline-flex items-center gap-1 bg-muted rounded-full px-3 py-1.5">
               <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />

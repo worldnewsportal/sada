@@ -60,8 +60,8 @@ async function main() {
   console.log(`Load test: ${USERS} users × ${MSGS} messages → ${BASE}`);
   const started = Date.now();
 
-  // phase 1: login all users
-  const sessions: Array<{ cookie: string; userId: string; chatId: string }> = [];
+  // phase 1: login all users (chatId assigned later in phase 2 pairings)
+  const sessions: Array<{ cookie: string; userId: string; chatId?: string }> = [];
   for (let i = 0; i < USERS; i++) {
     sessions.push(await loginAs(i));
   }

@@ -23,3 +23,25 @@ Stage Summary:
 - Deliverable: full monorepo (src/ + mini-services/ + infrastructure/ + docs/ + scripts/ + tests/)
 - Key decisions: PWA client over unverifiable Flutter; SQLite dev + Postgres prod schema; DB-backed queue (Redis-ready); denormalized receipts (O(1) group read counts); global seq allocator (transactional); content-addressed media; durable event log as sync backbone; dev OTP echo (auto-disabled in production)
 - All spec §53 quality-check items addressed in docs/architecture.md §10 + README feature map
+
+---
+Task ID: 2
+Agent: Super Z (main)
+Task: Continue from previous session stop point — fix ChatRow "getSnapshot should be cached" infinite loop (Zustand v5 + React 19) and re-run mandatory browser verification (user provided screenshot of prior session context)
+
+Work Log:
+- Diagnosed via browser automation (agent-browser): extracted exact error from Next.js dev overlay — "The result of getSnapshot should be cached to avoid an infinite loop" at chat-list.tsx:166 ChatRow `useStore((s) => s.onlineUsers)`.
+- Root cause: zustand `set()` with object partial ALWAYS creates a new state object and notifies all listeners, even for semantically identical values. `setOnline`/`setTyping` recreated Set/Record on every redundant presence/typing event; connect-time event bursts (presence + receipts + sync) churned `onlineUsers` identity mid-render → React 19 useSyncExternalStore detected unstable getSnapshot → infinite loop → Fast Refresh full reload (matched dev.log warnings).
+- Patch 1 (store.ts): no-op guards returning same state object (`return s`) in setOnline, setTyping, setConnectionState, setLoadingMessages, setChatsLoading, setHasMore, setUnreadNotifications — zustand's Object.is check now skips notification on redundant writes.
+- Patch 2 (chat-list.tsx ChatRow): replaced container selectors with primitive-returning selectors (`selectPeerOnline` → boolean via Set.has, `selectIsTyping` → boolean scan); removed unused `me` + EMPTY_TYPING.
+- Patch 3 (chat-view.tsx): same primitive-selector treatment — `anyTyping` boolean selector (replaces typingMap + typingNames), `peerOnline` boolean; updated effect deps + JSX; removed unused EMPTY_TYPING/me.
+- Fixed scripts/load-test.ts TS error (chatId made optional in sessions array type — assigned later in phase 2).
+- Fixed tests/main.test.ts lint error (require("crypto") → ESM createHmac import).
+- Mandatory browser verification PASSED: loaded app (cleared stale PWA service-worker cache first), chat list renders (فريق صدى / أخبار صدى / Saved Messages), opened group chat, sent real message "مرحباً! هذه رسالة اختبار بعد إصلاح خطأ getSnapshot ✅" → bubble appeared, MESSAGE_READ/DELIVERED receipts flowed via /sync, chat-list preview updated LIVE ("now أحمد: …") with ZERO getSnapshot errors after 8s under realtime event pressure.
+- Final gates: tsc --noEmit CLEAN, eslint CLEAN, bun test 25/25 PASS.
+- Evidence screenshot: download/sada-verification-chat.png
+
+Stage Summary:
+- ChatRow infinite-loop bug FIXED and verified end-to-end in a real browser as a real user.
+- Rule established for the codebase: Zustand v5 + React 19 selectors must return primitives or stable store references; ephemeral mutators (presence/typing/connection) must no-op on redundant writes.
+- Services running: web :3000 (200), realtime :3003 /internal/health {"ok":true}, DB seeded (4 users + group + channel + extras).
