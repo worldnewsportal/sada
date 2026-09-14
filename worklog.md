@@ -132,3 +132,20 @@ Stage Summary:
 - Email failover chain LIVE: resend active now; brevo (BREVO_API_KEY) and/or Gmail SMTP (SMTP_HOST/USER/PASS app-password) auto-join as backups the moment their keys land in .env.
 - CONSTRAINT (told user): Resend test mode delivers ONLY to dgd711573@gmail.com until a domain is verified. Universal delivery options: verify a (free) domain in Resend, add Brevo with verified sender, or add Gmail app password — any of them slots into the failover chain automatically.
 - SMTP_PASS clarified to user: NOT a random password — Google App Password generated only by the account owner (needs 2FA).
+
+---
+Task ID: 7
+Agent: main (Super Z)
+Task: user sent "[REDACTED-APP-PASSWORD]" — decoded instantly as a Google App Password format (16 chars, 4×4 groups) — the SMTP_PASS they'd asked about
+
+Work Log:
+- .env: SMTP_HOST=smtp.gmail.com SMTP_PORT=465 SMTP_SECURE=true SMTP_USER=ghkv04885@gmail.com SMTP_PASS=<app-password> EMAIL_CHAIN=smtp,resend (Gmail PRIMARY — universal delivery; Resend backup).
+- New env EMAIL_CHAIN: EXACT failover-order override (strict — unconfigured names dropped, NO implicit extras; unset = default resend→brevo→smtp). Bug found & fixed while testing: initial implementation auto-appended configured-but-unlisted providers, which defeated smtp-only isolation (status showed "smtp → resend" under EMAIL_CHAIN=smtp).
+- env.ts envFileGet precedence finding: bun -e and bun script modes honor shell env over .env, but bun test RE-INJECTS .env after preload (documented in tests/setup.ts).
+- VERIFICATION: (1) EMAIL_CHAIN=smtp bun scripts/test-email.ts dgd711573@gmail.com → provider "smtp — smtp.gmail.com:465 as ghkv04885@gmail.com" → Sent (Gmail AUTH + accept proven, no fallback possible); (2) live app flow POST request-email-otp ghkv04885@gmail.com → {"delivery":"email"} 200 — real activation email via Gmail through the real endpoint.
+- Gates: bun test 41/41 (new EMAIL_CHAIN strictness test), tsc CLEAN, eslint CLEAN; standalone rebuilt.
+
+Stage Summary:
+- Email failover LIVE: Gmail SMTP primary (any recipient, ~500/day Gmail cap) + Resend backup (test-mode: owner address only until domain verified). Brevo slots in via BREVO_API_KEY; order via EMAIL_CHAIN.
+- App password now lives in git-ignored .env; user can rotate from Google App passwords page anytime.
+- Gmail SMTP effectiveFrom auto-fix (resend.dev placeholder → authenticated address) verified in production path.

@@ -203,6 +203,12 @@ export const env = {
   get BREVO_API_KEY() {
     return envFileGet("BREVO_API_KEY") || "";
   },
+  get EMAIL_CHAIN() {
+    // Optional comma-separated provider order override, e.g. "smtp,resend".
+    // Default order: resend → brevo → smtp. Unknown/unconfigured names are
+    // skipped; configured-but-unlisted providers stay as trailing fallbacks.
+    return envFileGet("EMAIL_CHAIN") || "";
+  },
   get EMAIL_FROM() {
     return envFileGet("EMAIL_FROM") || "Sada \u0635\u062f\u0649 <no-reply@sada.local>";
   },

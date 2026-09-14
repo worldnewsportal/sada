@@ -14,7 +14,7 @@ process.env.OTP_DEV_ECHO = "true";
 // for the provider chain (envFileGet treats "" as falsy). The PROJECT_ROOT
 // sandbox below also empties the .env-file fallback, so the provider matrix
 // stays deterministic (tests drive config via process.env only).
-for (const k of ["RESEND_API_KEY", "BREVO_API_KEY", "SMTP_HOST", "SMTP_USER", "SMTP_PASS"]) {
+for (const k of ["RESEND_API_KEY", "BREVO_API_KEY", "SMTP_HOST", "SMTP_USER", "SMTP_PASS", "EMAIL_CHAIN"]) {
   process.env[k] = "";
 }
 import { mkdtempSync, writeFileSync } from "fs";

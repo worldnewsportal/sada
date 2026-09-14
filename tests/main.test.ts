@@ -465,7 +465,7 @@ describe("email auth (signup + welcome code + password login)", () => {
 });
 
 describe("email provider resolution (env matrix)", () => {
-  const EMAIL_KEYS = ["RESEND_API_KEY", "BREVO_API_KEY", "SMTP_HOST", "SMTP_USER", "SMTP_PASS"] as const;
+  const EMAIL_KEYS = ["RESEND_API_KEY", "BREVO_API_KEY", "SMTP_HOST", "SMTP_USER", "SMTP_PASS", "EMAIL_CHAIN"] as const;
   const saved: Record<string, string | undefined> = {};
   const setEnv = (vars: Partial<Record<(typeof EMAIL_KEYS)[number], string>>) => {
     for (const k of EMAIL_KEYS) {
@@ -520,6 +520,19 @@ describe("email provider resolution (env matrix)", () => {
   test("BREVO alone → lead provider", () => {
     setEnv({ BREVO_API_KEY: "xkeysib-x" });
     expect(resolveEmailProviderName().provider).toBe("brevo");
+  });
+
+  test("EMAIL_CHAIN is an EXACT order override; unconfigured names dropped", () => {
+    setEnv({ RESEND_API_KEY: "re_x", SMTP_HOST: "smtp.gmail.com", SMTP_USER: "a@gmail.com", SMTP_PASS: "p" });
+    process.env.EMAIL_CHAIN = "smtp,resend";
+    expect(configuredEmailChain()).toEqual(["smtp", "resend"]);
+    process.env.EMAIL_CHAIN = "brevo,smtp"; // brevo unconfigured → dropped, NO implicit extras
+    expect(configuredEmailChain()).toEqual(["smtp"]);
+    process.env.EMAIL_CHAIN = "smtp"; // smtp ONLY — strict isolation for provider tests
+    expect(configuredEmailChain()).toEqual(["smtp"]);
+    process.env.EMAIL_CHAIN = "";
+    expect(configuredEmailChain()).toEqual(["resend", "smtp"]); // default order restored
+    delete process.env.EMAIL_CHAIN;
   });
 
   test("partial SMTP (missing pass) is NOT real — no half-configured false positive", () => {

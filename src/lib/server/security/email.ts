@@ -232,13 +232,21 @@ export interface EmailConfigStatus {
 }
 
 /** Which providers are configured right now, in failover order (pure —
- *  no side effects; reads env each call so .env edits apply live). */
+ *  no side effects; reads env each call so .env edits apply live).
+ *  EMAIL_CHAIN env is an EXACT order override (e.g. "smtp,resend" = Gmail
+ *  primary, Resend backup — and that's ALL; no implicit extras). Unconfigured
+ *  names are dropped; unset/empty → default order resend → brevo → smtp. */
 export function configuredEmailChain(): string[] {
-  const chain: string[] = [];
-  if (env.RESEND_API_KEY) chain.push("resend");
-  if (env.BREVO_API_KEY) chain.push("brevo");
-  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) chain.push("smtp");
-  return chain;
+  const all: string[] = [];
+  if (env.RESEND_API_KEY) all.push("resend");
+  if (env.BREVO_API_KEY) all.push("brevo");
+  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) all.push("smtp");
+  const override = env.EMAIL_CHAIN.trim();
+  if (!override) return all;
+  return override
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter((n) => (all as string[]).includes(n));
 }
 
 export function resolveEmailProviderName(): EmailConfigStatus {
