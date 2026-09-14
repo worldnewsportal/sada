@@ -136,7 +136,7 @@ Stage Summary:
 ---
 Task ID: 7
 Agent: main (Super Z)
-Task: user sent "[REDACTED-APP-PASSWORD]" — decoded instantly as a Google App Password format (16 chars, 4×4 groups) — the SMTP_PASS they'd asked about
+Task: user sent their Google App Password in chat (16 chars, 4×4 groups — content REDACTED from repo) — the SMTP_PASS they'd asked about
 
 Work Log:
 - .env: SMTP_HOST=smtp.gmail.com SMTP_PORT=465 SMTP_SECURE=true SMTP_USER=ghkv04885@gmail.com SMTP_PASS=<app-password> EMAIL_CHAIN=smtp,resend (Gmail PRIMARY — universal delivery; Resend backup).
