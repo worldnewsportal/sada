@@ -1,0 +1,32 @@
+# Render Blueprint — deploys the full Sada platform (web + realtime +
+# worker in one container) from this repo. "New +" → "Blueprint" →
+# pick this repo. NOTE: free plan has NO persistent disk (data resets
+# on redeploys) — attach the disk below on Starter for persistence.
+services:
+  - type: web
+    name: sada
+    runtime: docker
+    dockerfilePath: ./infrastructure/docker/Dockerfile.all-in-one
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    disk:
+      name: sada-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_URL
+        value: file:/app/data/sada.db
+      - key: MEDIA_ROOT
+        value: /app/data/media
+      - key: REALTIME_URL
+        value: http://127.0.0.1:3003
+      - key: JWT_SECRET
+        generateValue: true
+      - key: INTERNAL_SECRET
+        generateValue: true
+      - key: APP_PEPPER
+        generateValue: true
+      - key: ALLOW_TEST_PHONES
+        value: "true"

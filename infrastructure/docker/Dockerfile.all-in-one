@@ -1,0 +1,51 @@
+# syntax=docker/dockerfile:1
+# ============================================================
+# Sada ALL-IN-ONE image (single-container deploy for Railway /
+# Render / small VPS): web + realtime + worker in one container
+# sharing one SQLite file + local media dir on /app/data volume.
+# (SQLite cannot be shared safely across separate containers —
+# this topology keeps file-locking correct on one kernel.)
+# Health: /api/v1/health — CI builds this image on every push.
+# ============================================================
+
+FROM oven/bun:1 AS deps
+WORKDIR /app
+COPY package.json bun.lock ./
+COPY prisma ./prisma
+RUN bun install --frozen-lockfile
+RUN bunx prisma generate
+
+FROM oven/bun:1 AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
+COPY . .
+ENV NODE_ENV=production
+ENV DATABASE_URL="file:/app/data/sada.db"
+RUN bun run build
+
+FROM oven/bun:1 AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV DATABASE_URL="file:/app/data/sada.db"
+ENV MEDIA_ROOT="/app/data/media"
+ENV REALTIME_URL="http://127.0.0.1:3003"
+RUN apt-get update && apt-get install -y --no-install-recommends sqlite3 curl && rm -rf /var/lib/apt/lists/*
+# standalone server tree (server.js + traced node_modules + server chunks)
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+# full dependency tree (superset of traced — realtime/worker need socket.io,
+# prisma CLI, sharp, etc.) + sources so `@/*` aliases resolve as in the repo
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/src ./src
+COPY --from=build /app/mini-services ./mini-services
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/package.json ./package.json
+COPY infrastructure/docker/start-all.sh /app/start-all.sh
+RUN chmod +x /app/start-all.sh && mkdir -p /app/data/media
+VOLUME ["/app/data"]
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s CMD curl -sf http://127.0.0.1:3000/api/v1/health || exit 1
+CMD ["bash", "/app/start-all.sh"]

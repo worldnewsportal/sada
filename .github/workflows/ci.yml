@@ -46,6 +46,7 @@ jobs:
           docker build -f infrastructure/docker/Dockerfile.web -t sada-web:${{ github.sha }} .
           docker build -f infrastructure/docker/Dockerfile.realtime -t sada-realtime:${{ github.sha }} .
           docker build -f infrastructure/docker/Dockerfile.worker -t sada-worker:${{ github.sha }} .
+          docker build -f infrastructure/docker/Dockerfile.all-in-one -t sada-all-in-one:${{ github.sha }} .
 
   deploy:
     needs: docker

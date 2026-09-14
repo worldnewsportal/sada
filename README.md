@@ -29,6 +29,16 @@ rules, phased implementation order, and an honest no-demo/no-mock policy).
   coalesced list refresh, typing indicators auto-expire, reconnect-on-online,
   jump-to-latest, duplicate-bubble fix.
 
+## Deploy (one-click, real hosting)
+
+GitHub Pages cannot host Sada (it needs a server runtime, DB, WebSocket,
+secrets — see `DEPLOY.md`). Real hosting, auto-configured from this repo:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/worldnewsportal/sada)
+
+or on **Railway**: New Project → Deploy from GitHub repo → `worldnewsportal/sada`
+→ add a Volume mounted at `/app/data`. Full bilingual guide: **DEPLOY.md**.
+
 ## Quick start
 
 ```bash
