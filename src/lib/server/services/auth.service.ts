@@ -17,6 +17,7 @@ import { signAccessToken, signTwofaTicket } from "../jwt";
 import { verifyTwofaTicket } from "../jwt-helpers";
 import { enforceRateLimit } from "../security/rate-limit";
 import { verifyTotp } from "../security/totp";
+import { getSmsProvider, hasRealSmsProvider, isTestPhone, assertTestPhonesAllowed } from "../security/sms";
 import { appendAudit } from "./audit.service";
 
 const REFRESH_TTL_MS = 30 * 24 * 3600 * 1000;
@@ -29,34 +30,10 @@ export interface DeviceInfo {
   appVersion?: string;
 }
 
-// ---------- SMS provider abstraction ----------
-export interface SmsProvider {
-  send(phone: string, text: string): Promise<void>;
-}
-/** Dev provider: logs the code (visible in worker/service logs). */
-class ConsoleSmsProvider implements SmsProvider {
-  async send(phone: string, text: string) {
-    log.info("sms-console", { phone: phone.slice(0, 6) + "***", text });
-  }
-}
-/** Production provider: generic HTTP gateway (Twilio-compatible via env). */
-class HttpSmsProvider implements SmsProvider {
-  async send(phone: string, text: string) {
-    const url = process.env.SMS_GATEWAY_URL;
-    if (!url) throw new Error("SMS_GATEWAY_URL not configured");
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${process.env.SMS_GATEWAY_TOKEN || ""}`,
-      },
-      body: JSON.stringify({ to: phone, text }),
-    });
-    if (!res.ok) throw new Error(`SMS gateway ${res.status}`);
-  }
-}
-export const smsProvider: SmsProvider =
-  process.env.SMS_GATEWAY_URL ? new HttpSmsProvider() : new ConsoleSmsProvider();
+// ---------- SMS delivery (see src/lib/server/security/sms.ts) ----------
+// Providers: twilio | http-gateway | console(dev) | none. Test phones
+// ("+999…" prefix) never reach a provider — see requestOtp routing below.
+export { getSmsProvider as smsProvider } from "../security/sms";
 
 // ---------- helpers ----------
 
@@ -78,10 +55,14 @@ function generateCode(): string {
 
 // ---------- OTP flow ----------
 
+export type OtpDelivery = "test" | "sms" | "dev";
+
 export async function requestOtp(rawPhone: string, ip: string) {
   enforceRateLimit("auth:request-otp", rawPhone);
   enforceRateLimit("auth:login-ip", ip);
   const phone = normalizePhone(rawPhone);
+  const testPhone = isTestPhone(phone);
+  if (testPhone) assertTestPhonesAllowed();
 
   const user = await db.user.findUnique({ where: { phone } });
   if (user?.deletedAt) throw ApiError.notFound("Account no longer exists");
@@ -89,6 +70,29 @@ export async function requestOtp(rawPhone: string, ip: string) {
     throw ApiError.forbidden("Account suspended");
   }
 
+  // Resend cooldown + hourly ceiling (DB-counted, survives limiter restarts).
+  // Applies to BOTH paths — protects real-SMS cost and test-mode flooding.
+  const recent = await db.otpCode.findFirst({
+    where: { phone, createdAt: { gt: new Date(Date.now() - env.SMS_RESEND_COOLDOWN_S * 1000) } },
+    orderBy: { createdAt: "desc" },
+  });
+  if (recent) {
+    const waitS = Math.max(1, Math.ceil((recent.createdAt.getTime() + env.SMS_RESEND_COOLDOWN_S * 1000 - Date.now()) / 1000));
+    throw ApiError.rateLimited(waitS);
+  }
+  const hourly = await db.otpCode.count({
+    where: { phone, createdAt: { gt: new Date(Date.now() - 3600_000) } },
+  });
+  if (hourly >= env.SMS_MAX_PER_HOUR) {
+    throw ApiError.rateLimited(3600);
+  }
+
+  // Invalidate ALL older unconsumed codes for this phone first — only the
+  // newest code may ever verify (prevents multi-active-code confusion).
+  await db.otpCode.updateMany({
+    where: { phone, consumedAt: null },
+    data: { consumedAt: new Date() },
+  });
   const code = generateCode();
   const salt = randomBytes(16).toString("hex");
   await db.otpCode.create({
@@ -101,10 +105,36 @@ export async function requestOtp(rawPhone: string, ip: string) {
       expiresAt: new Date(Date.now() + OTP_TTL_S * 1000),
     },
   });
-  await smsProvider.send(phone, `Sada verification code: ${code} (valid ${OTP_TTL_S / 60} minutes)`);
+
+  // --- delivery routing ---
+  // test: fake number → never touches a provider, code surfaced in-app
+  // sms:  real number → provider delivers; the code NEVER appears in a response
+  // dev:  real number in dev with no real provider configured → echo in-app
+  //       (OTP_DEV_ECHO is auto-disabled in production, so this cannot leak)
+  let delivery: OtpDelivery;
+  if (testPhone) {
+    delivery = "test";
+    log.info("otp-test-mode", { phone, code });
+  } else if (hasRealSmsProvider()) {
+    await getSmsProvider().send(phone, `Sada verification code: ${code} (valid ${OTP_TTL_S / 60} minutes)`);
+    delivery = "sms";
+  } else if (env.OTP_DEV_ECHO) {
+    delivery = "dev";
+    log.info("otp-dev-echo", { phone, code });
+  } else {
+    throw ApiError.unavailable(
+      "SMS provider is not configured — set TWILIO_* or SMS_GATEWAY_URL (or use a test number +999…)"
+    );
+  }
   await appendAudit({ actorType: "user", actorId: user?.id, action: "auth.otp_requested", targetType: "user", targetId: phone, ip });
 
-  return { sent: true, expiresInSeconds: OTP_TTL_S, devCode: env.OTP_DEV_ECHO ? code : undefined };
+  return {
+    sent: true,
+    expiresInSeconds: OTP_TTL_S,
+    delivery,
+    testPhone,
+    devCode: delivery === "sms" ? undefined : code,
+  };
 }
 
 export interface LoginResult {

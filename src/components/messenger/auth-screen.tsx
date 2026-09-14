@@ -9,6 +9,13 @@ import { useStore } from "@/lib/client/store";
 import { api, post, ApiClientError } from "@/lib/client/api";
 
 type Step = "phone" | "otp" | "twofa" | "profile";
+type Delivery = "test" | "sms" | "dev" | null;
+
+// Must mirror server TEST_PHONE_PREFIXES default (+999 — unassigned country
+// code, collision-free). Server remains the source of truth; this only
+// drives UI affordances (badge/hint) before the request round-trips.
+const TEST_PREFIX = "+999";
+const isTestPhoneLocal = (phone: string) => phone.replace(/[\s()-]/g, "").startsWith(TEST_PREFIX);
 
 export default function AuthScreen() {
   const t = useT();
@@ -19,6 +26,7 @@ export default function AuthScreen() {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
+  const [delivery, setDelivery] = useState<Delivery>(null);
   const [ticket, setTicket] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,8 +36,9 @@ export default function AuthScreen() {
     setBusy(true);
     setError("");
     try {
-      const res = await post<{ sent: boolean; devCode?: string }>("auth/request-otp", { phone: phone.trim() });
+      const res = await post<{ sent: boolean; delivery?: Delivery; devCode?: string }>("auth/request-otp", { phone: phone.trim() });
       setDevCode(res.devCode || null);
+      setDelivery(res.delivery || (res.devCode ? "dev" : "sms"));
       setStep("otp");
     } catch (e) {
       setError((e as ApiClientError).message);
@@ -141,6 +150,15 @@ export default function AuthScreen() {
                   inputMode="tel"
                   aria-label={t.phone}
                 />
+                {isTestPhoneLocal(phone) && (
+                  <p className="text-xs font-medium text-amber-300/90 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2" dir="rtl">
+                    🧪 {t.testModeBadge}
+                  </p>
+                )}
+                <details className="text-xs text-teal-300/80">
+                  <summary className="cursor-pointer select-none hover:text-teal-200">{t.testModeBadge}؟</summary>
+                  <p className="mt-2 leading-relaxed" dir="rtl">{t.testModeHint}</p>
+                </details>
                 <Button className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold" disabled={busy} onClick={requestOtp}>
                   {t.sendCode}
                 </Button>
@@ -149,6 +167,19 @@ export default function AuthScreen() {
 
             {step === "otp" && (
               <>
+                {delivery === "test" ? (
+                  <p className="text-xs font-medium text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 text-center" dir="rtl">
+                    🧪 {t.testModeNote}
+                  </p>
+                ) : delivery === "dev" ? (
+                  <p className="text-xs text-teal-300/90 bg-teal-500/10 border border-teal-500/30 rounded-lg px-3 py-2 text-center" dir="rtl">
+                    {t.devEchoNote}
+                  </p>
+                ) : (
+                  <p className="text-xs text-emerald-300/90 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2 text-center" dir="rtl">
+                    📱 {t.smsSentNote}
+                  </p>
+                )}
                 <p className="text-sm text-teal-200">
                   {t.codeSentTo} <span dir="ltr" className="font-bold">{phone}</span>
                 </p>
@@ -161,11 +192,18 @@ export default function AuthScreen() {
                   onKeyDown={(e) => e.key === "Enter" && verifyOtp()}
                   inputMode="numeric"
                   aria-label={t.code}
+                  autoComplete="one-time-code"
                 />
                 {devCode && (
-                  <p className="text-xs text-amber-300/90 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setCode(devCode)}
+                    className="w-full text-xs text-amber-300/90 bg-amber-500/5 border border-dashed border-amber-500/40 rounded-lg px-3 py-2 hover:bg-amber-500/10 transition-colors"
+                    aria-label="fill dev code"
+                  >
                     {t.devCodeNote}: <span className="font-mono font-bold text-amber-200" dir="ltr">{devCode}</span>
-                  </p>
+                    <span className="block text-[10px] text-teal-400/70 mt-1">↖ {t.code}</span>
+                  </button>
                 )}
                 <Button className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold" disabled={busy || code.length < 4} onClick={verifyOtp}>
                   {t.verifyCode}

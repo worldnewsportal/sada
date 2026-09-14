@@ -102,4 +102,43 @@ export const env = {
     // uses the pluggable SmsProvider (Twilio-compatible HTTP gateway).
     return process.env.OTP_DEV_ECHO !== "false" && this.NODE_ENV !== "production";
   },
+  get SMS_PROVIDER() {
+    // "auto" (default) | "twilio" | "http" | "console" | "none"
+    return process.env.SMS_PROVIDER || "auto";
+  },
+  get TWILIO_ACCOUNT_SID() {
+    return process.env.TWILIO_ACCOUNT_SID || "";
+  },
+  get TWILIO_AUTH_TOKEN() {
+    return process.env.TWILIO_AUTH_TOKEN || "";
+  },
+  get TWILIO_FROM() {
+    return process.env.TWILIO_FROM || "";
+  },
+  get TEST_PHONE_PREFIXES() {
+    // Numbers starting with any of these prefixes are FAKE/test numbers:
+    // no real SMS is ever sent, the code is surfaced in-app (dev/demo only).
+    // "+999" is not an assigned country code → collision-free by design.
+    const raw = process.env.TEST_PHONE_PREFIXES;
+    return (raw === undefined ? "+999" : raw)
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+  },
+  get ALLOW_TEST_PHONES() {
+    // Test phones are a development/demo affordance. They stay enabled in
+    // non-production and require an explicit opt-in in production.
+    if (this.NODE_ENV !== "production") return true;
+    return process.env.ALLOW_TEST_PHONES === "true";
+  },
+  get SMS_RESEND_COOLDOWN_S() {
+    // Minimum seconds between two OTP sends for the same phone (anti-SMS-
+    // bombing / cost control). Verify attempt cap + TTL remain independent.
+    return parseInt(process.env.SMS_RESEND_COOLDOWN_S || "45", 10);
+  },
+  get SMS_MAX_PER_HOUR() {
+    // Hourly per-phone ceiling on issued OTP codes (belt & braces on top of
+    // the sliding-window limiter; survives limiter restarts since it counts DB rows).
+    return parseInt(process.env.SMS_MAX_PER_HOUR || "10", 10);
+  },
 };
