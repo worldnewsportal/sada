@@ -13,6 +13,7 @@ import { createMediaUrl, verifyMediaUrl, internalSignature, verifyInternalSignat
 import { enforceRateLimit, rateStore } from "../src/lib/server/security/rate-limit";
 import { sniffMime, sanitizeFilename, validateUpload } from "../src/lib/server/security/file-validation";
 import { Router, createApiHandler } from "../src/lib/server/api";
+import { renderEmailOtp, resolveEmailProviderName, EMAIL_NOT_CONFIGURED_MESSAGE } from "../src/lib/server/security/email";
 
 const db = new PrismaClient({
   datasourceUrl: process.env.DATABASE_URL,
@@ -451,6 +452,83 @@ describe("email auth (signup + welcome code + password login)", () => {
     expect(req2.isNew).toBe(false); // server knows the account exists (drives welcome vs login template)
     await verifyEmailOtp(email, req2.devCode, { deviceName: "test", platform: "test" }, "test-ip");
     expect(await db.user.count({ where: { email } })).toBe(1);
+  });
+});
+
+describe("email provider resolution (env matrix)", () => {
+  const EMAIL_KEYS = ["RESEND_API_KEY", "BREVO_API_KEY", "SMTP_HOST", "SMTP_USER", "SMTP_PASS"] as const;
+  const saved: Record<string, string | undefined> = {};
+  const setEnv = (vars: Partial<Record<(typeof EMAIL_KEYS)[number], string>>) => {
+    for (const k of EMAIL_KEYS) {
+      delete process.env[k];
+      const v = vars[k];
+      if (v !== undefined) process.env[k] = v;
+    }
+  };
+
+  beforeAll(() => {
+    for (const k of EMAIL_KEYS) saved[k] = process.env[k];
+    // resolver reads process env first; project .env has none of these keys
+  });
+  afterAll(() => {
+    setEnv({});
+    for (const k of EMAIL_KEYS) if (saved[k] !== undefined) process.env[k] = saved[k];
+  });
+
+  test("no config + production → provider 'none' (hard fail with bilingual message)", () => {
+    setEnv({});
+    process.env.NODE_ENV = "production";
+    // bust the cached status? resolver is pure per-call — just call it
+    const status = resolveEmailProviderName();
+    expect(status.real).toBe(false);
+    expect(status.provider).toBe("none");
+    expect(EMAIL_NOT_CONFIGURED_MESSAGE).toContain("Email delivery is not configured");
+  });
+
+  test("smtp trio wins when no API key present", () => {
+    setEnv({ SMTP_HOST: "smtp.gmail.com", SMTP_USER: "a@gmail.com", SMTP_PASS: "app-pass" });
+    const status = resolveEmailProviderName();
+    expect(status.provider).toBe("smtp");
+    expect(status.real).toBe(true);
+    expect(status.hint).toContain("smtp.gmail.com");
+  });
+
+  test("RESEND_API_KEY outranks SMTP (documented order)", () => {
+    setEnv({ RESEND_API_KEY: "re_x", SMTP_HOST: "smtp.gmail.com", SMTP_USER: "a@gmail.com", SMTP_PASS: "p" });
+    expect(resolveEmailProviderName().provider).toBe("resend");
+  });
+
+  test("BREVO_API_KEY outranks SMTP, loses to RESEND", () => {
+    setEnv({ BREVO_API_KEY: "xkeysib-x", SMTP_HOST: "h", SMTP_USER: "u", SMTP_PASS: "p" });
+    expect(resolveEmailProviderName().provider).toBe("brevo");
+    process.env.RESEND_API_KEY = "re_x";
+    expect(resolveEmailProviderName().provider).toBe("resend");
+    delete process.env.RESEND_API_KEY;
+  });
+
+  test("partial SMTP (missing pass) is NOT real — no half-configured false positive", () => {
+    setEnv({ SMTP_HOST: "smtp.gmail.com", SMTP_USER: "a@gmail.com" });
+    const status = resolveEmailProviderName();
+    expect(status.real).toBe(false);
+  });
+
+  test("dev with no config falls back to console echo", () => {
+    setEnv({});
+    process.env.NODE_ENV = "development";
+    const status = resolveEmailProviderName();
+    expect(status.provider).toBe("console");
+    expect(status.real).toBe(false);
+  });
+
+  test("welcome template is bilingual and carries the code", () => {
+    const mail = renderEmailOtp({ code: "123456", ttlMin: 10, isNew: true });
+    expect(mail.subject).toContain("123456");
+    expect(mail.html).toContain("أهلاً بك في صدى");
+    expect(mail.html).toContain("Welcome to Sada");
+    expect(mail.text).toContain("123456");
+    const login = renderEmailOtp({ code: "654321", ttlMin: 10, isNew: false });
+    expect(login.html).toContain("تسجيل الدخول إلى صدى");
+    expect(login.subject).not.toContain("تفعيل");
   });
 });
 

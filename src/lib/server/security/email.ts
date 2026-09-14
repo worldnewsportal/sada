@@ -1,17 +1,20 @@
 // ============================================================
 // Email provider layer (spec §15 extended) — real signup/login mail.
 //
-// Resolution order (auto):
-//   1. smtp    — SMTP_HOST + SMTP_USER + SMTP_PASS set (works with any
+// Resolution order (auto — first configured wins):
+//   1. resend  — RESEND_API_KEY set (HTTPS API, no SMTP setup)
+//   2. brevo   — BREVO_API_KEY set (HTTPS API, no SMTP setup)
+//   3. smtp    — SMTP_HOST + SMTP_USER + SMTP_PASS set (works with any
 //                provider offering SMTP: Brevo, SendGrid, Mailgun, Gmail
 //                app-password, Outlook, self-hosted Postfix…)
-//   2. console — dev fallback (full message to the server log)
-//   3. none    — production with zero config → requestEmailOtp rejects
-//                with a clear error instead of silently dropping mail.
+//   4. console — dev fallback (full message to the server log)
+//   5. none    — production with zero config → requestEmailOtp rejects
+//                with a clear bilingual error instead of silently
+//                dropping mail.
 //
-// Deliverability note: with SMTP configured, mail is sent for real.
-// SPF/DKIM/DMARC alignment depends on the sending domain — see
-// .env.example for provider setup hints.
+// Deliverability note: with any provider configured, mail is sent FOR REAL.
+// SPF/DKIM/DMARC alignment depends on the sending domain — API providers
+// (Resend/Brevo) walk you through it in their dashboard. See .env.example.
 // ============================================================
 import { ApiError } from "../errors";
 import { log } from "../logger";
@@ -25,15 +28,83 @@ export interface EmailMessage {
 }
 
 export interface EmailProvider {
-  readonly name: "smtp" | "console" | "none";
-  send(msg: EmailMessage): Promise<void>;
+  readonly name: "resend" | "brevo" | "smtp" | "console" | "none";
+  /** Resolves when the provider accepted the message. SMTP returns the
+   *  nodemailer SentMessageInfo (diagnostics/self-test); others return void. */
+  send(msg: EmailMessage): Promise<unknown>;
 }
+
+export const EMAIL_NOT_CONFIGURED_MESSAGE =
+  "إرسال البريد غير مُهيأ بعد — يحتاج الخادم بيانات مزوّد بريد حقيقي (خطوة واحدة، انظر EMAIL_SETUP) — " +
+  "Email delivery is not configured — set RESEND_API_KEY / BREVO_API_KEY / SMTP_HOST+SMTP_USER+SMTP_PASS (see .env.example)";
 
 /** Dev fallback: logs the full message (dev only — visibility is the point). */
 class ConsoleEmailProvider implements EmailProvider {
   readonly name = "console" as const;
   async send(msg: EmailMessage) {
     log.info("email-console", { to: msg.to, subject: msg.subject, text: msg.text });
+  }
+}
+
+function friendlySendError(provider: string, e: unknown): never {
+  // Never echo provider error bodies (may contain keys/account info)
+  const raw = (e as Error)?.message || "unknown";
+  log.error("email-send-error", { provider, error: raw.slice(0, 200) });
+  throw ApiError.unavailable("تعذّر إرسال البريد — أعد المحاولة بعد قليل — Email delivery failed — try again shortly");
+}
+
+/** Resend (https://resend.com) — simple HTTPS API, generous free tier. */
+class ResendApiProvider implements EmailProvider {
+  readonly name = "resend" as const;
+  constructor(
+    private readonly apiKey: string,
+    private readonly from: string
+  ) {}
+
+  async send(msg: EmailMessage) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: this.from, to: [msg.to], subject: msg.subject, html: msg.html, text: msg.text }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) throw new Error(`resend HTTP ${res.status}: ${(await res.text()).slice(0, 120)}`);
+    } catch (e) {
+      friendlySendError("resend", e);
+    }
+  }
+}
+
+/** Brevo (https://brevo.com, ex-Sendinblue) — HTTPS API, 300 mails/day free. */
+class BrevoApiProvider implements EmailProvider {
+  readonly name = "brevo" as const;
+  constructor(
+    private readonly apiKey: string,
+    private readonly from: string
+  ) {}
+
+  async send(msg: EmailMessage) {
+    // "Display Name <addr@x>" → { name, email }
+    const m = this.from.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+    const sender = m ? { name: m[1], email: m[2] } : { email: this.from };
+    try {
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: { "api-key": this.apiKey, "Content-Type": "application/json", accept: "application/json" },
+        body: JSON.stringify({
+          sender,
+          to: [{ email: msg.to }],
+          subject: msg.subject,
+          htmlContent: msg.html,
+          textContent: msg.text,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) throw new Error(`brevo HTTP ${res.status}: ${(await res.text()).slice(0, 120)}`);
+    } catch (e) {
+      friendlySendError("brevo", e);
+    }
   }
 }
 
@@ -50,6 +121,13 @@ class SmtpEmailProvider implements EmailProvider {
     private readonly pass: string,
     private readonly from: string
   ) {}
+
+  /** Gmail rewrites mismatched From headers; use the authenticated address
+   *  when the configured From is still the placeholder local domain. */
+  private get effectiveFrom(): string {
+    if (/@(sada\.local|yourdomain\.com)>?\s*$/i.test(this.from) && this.user.includes("@")) return this.user;
+    return this.from;
+  }
 
   private async getTransporter() {
     if (!this.transporter) {
@@ -70,12 +148,14 @@ class SmtpEmailProvider implements EmailProvider {
   async send(msg: EmailMessage) {
     try {
       const t = await this.getTransporter();
-      await t.sendMail({ from: this.from, to: msg.to, subject: msg.subject, html: msg.html, text: msg.text });
+      const from = this.effectiveFrom;
+      // Returned for diagnostics (self-test CLI uses it for the preview URL)
+      return await t.sendMail({ from, to: msg.to, subject: msg.subject, html: msg.html, text: msg.text });
     } catch (e) {
       // Never echo SMTP error bodies (may contain credentials/account info)
       log.error("email-smtp-error", { error: (e as Error).message.slice(0, 200) });
       this.transporter = null; // force transport re-init next attempt
-      throw ApiError.unavailable("Email delivery failed — try again shortly");
+      throw ApiError.unavailable("تعذّر إرسال البريد — أعد المحاولة بعد قليل — Email delivery failed — try again shortly");
     }
   }
 }
@@ -83,17 +163,44 @@ class SmtpEmailProvider implements EmailProvider {
 class NoEmailProvider implements EmailProvider {
   readonly name = "none" as const;
   async send() {
-    throw ApiError.unavailable(
-      "Email delivery is not configured — set SMTP_HOST/SMTP_USER/SMTP_PASS (see .env.example)"
-    );
+    throw ApiError.unavailable(EMAIL_NOT_CONFIGURED_MESSAGE);
   }
 }
 
+export interface EmailConfigStatus {
+  provider: EmailProvider["name"];
+  real: boolean;
+  hint: string;
+}
+
+/** Which provider WOULD be used right now (no side effects) — used by the
+ *  self-test CLI and boot logging. Order mirrors buildProvider(). */
+export function resolveEmailProviderName(): EmailConfigStatus {
+  if (env.RESEND_API_KEY) return { provider: "resend", real: true, hint: "RESEND_API_KEY" };
+  if (env.BREVO_API_KEY) return { provider: "brevo", real: true, hint: "BREVO_API_KEY" };
+  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS)
+    return { provider: "smtp", real: true, hint: `${env.SMTP_HOST}:${env.SMTP_PORT} as ${env.SMTP_USER}` };
+  if (env.NODE_ENV !== "production") return { provider: "console", real: false, hint: "dev echo (no real mail)" };
+  return { provider: "none", real: false, hint: "NOT CONFIGURED — emails will be rejected" };
+}
+
 function buildProvider(): EmailProvider {
-  const ready = !!(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
-  if (ready) return new SmtpEmailProvider(env.SMTP_HOST, env.SMTP_PORT, env.SMTP_SECURE, env.SMTP_USER, env.SMTP_PASS, env.EMAIL_FROM);
-  if (env.NODE_ENV !== "production") return new ConsoleEmailProvider();
-  return new NoEmailProvider();
+  const status = resolveEmailProviderName();
+  switch (status.provider) {
+    case "resend":
+      return new ResendApiProvider(env.RESEND_API_KEY, env.EMAIL_FROM);
+    case "brevo":
+      return new BrevoApiProvider(env.BREVO_API_KEY, env.EMAIL_FROM);
+    case "smtp":
+      return new SmtpEmailProvider(env.SMTP_HOST, env.SMTP_PORT, env.SMTP_SECURE, env.SMTP_USER, env.SMTP_PASS, env.EMAIL_FROM);
+    case "console":
+      return new ConsoleEmailProvider();
+    case "none":
+      log.warn("email-provider-missing", {
+        hint: "Set RESEND_API_KEY or BREVO_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS — see .env.example §EMAIL",
+      });
+      return new NoEmailProvider();
+  }
 }
 
 const globalForEmail = globalThis as unknown as { __emailProvider?: EmailProvider };
@@ -104,9 +211,9 @@ export function getEmailProvider(): EmailProvider {
   return globalForEmail.__emailProvider;
 }
 
-/** A provider that actually delivers mail (smtp) — vs console/none. */
+/** A provider that actually delivers mail — vs console/none. */
 export function hasRealEmailProvider(): boolean {
-  return getEmailProvider().name === "smtp";
+  return getEmailProvider().name !== "console" && getEmailProvider().name !== "none";
 }
 
 // ---------- templates (bilingual: Arabic RTL + English) ----------

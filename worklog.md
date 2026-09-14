@@ -91,3 +91,24 @@ Stage Summary:
 - Email auth is production-ready: real SMTP delivery the moment SMTP_* is set (Brevo/Gmail/SendGrid/any), dev-echo fallback auto-disabled in production, codes hashed+salted 10-min TTL 5 attempts, 60s resend cooldown + 10/hour cap per email, brute-force lockout 5→15min (DB-backed, survives restarts), uniform errors (no enumeration), pending signup password never stored plaintext.
 - Login matrix now: phone+SMS/test-code, email+code, email/phone+password, 2FA on top — all sharing issueSession (sessions/2FA/audit unchanged).
 - Rule: signup passwords live as pendingPasswordHash inside the EmailOtp row until activation; never on the user before verify.
+
+---
+Task ID: 5
+Agent: main (Super Z)
+Task: "ما المشكلة و الحل" — screenshot showed "Email delivery is not configured" on email signup (ghkv04885@gmail.com)
+
+Work Log:
+- Diagnosis: probed local :3000 (dev server) — request-email-otp works (devCode returned, logged in dev.log 17:23Z); user's screenshot domain 7zbgta1-d.space-z.ai resolves to external ALB and NOW returns HTTP 410 Gone → user was on a STALE previous-session preview running NODE_ENV=production with zero email config; that instance's hard-fail message is by-design (production must never silently fake mail).
+- Root cause #2: even the current app has NO real email provider credentials — .env has only DB/JWT secrets. Real delivery requires user-supplied provider credentials (fundamental to email: unauthenticated send = spam-rejected).
+- email.ts rewritten: resolution order resend → brevo → smtp → console(dev) → none(prod); added ResendApiProvider + BrevoApiProvider (pure fetch, 15s timeout, no key leakage); SmtpEmailProvider returns SentMessageInfo (diagnostics) + effectiveFrom auto-fix (Gmail rewrites mismatched From; placeholder domains → authenticated user); bilingual AR+EN not-configured + send-failure messages; resolveEmailProviderName() pure status helper; boot warn log when prod+none.
+- env.ts: RESEND_API_KEY/BREVO_API_KEY getters + envFileGet() — cached .env-file fallback (quote-stripped) for ALL email vars so standalone deployments read project .env even when shell env is empty (process env always wins).
+- scripts/test-email.ts: --status | --ethereal | real-send-to-address CLI.
+- VERIFICATION (the "تأكد جيدا"): Ethereal end-to-end — created REAL SMTP account, sent through THIS app's SmtpEmailProvider → server "250 Accepted MSGID=aqguS1…"; fetched received mail page → contains "أهلاً بك في صدى" + "activation code: 155962". Preview: https://ethereal.email/message/aqguS1.qZeQKZiIXaqguT2BC2Znvdz2hAAAAAR1Thgo.gYoXXNhUKCTNE7k
+- tests +7 new (35/35 PASS): provider env matrix (order, partial-config false-positive guard, prod none, dev console), bilingual template checks.
+- .env.example §EMAIL rewritten: Options A/B/C (Resend / Brevo 300-day-free / SMTP-Gmail-app-password) with exact click paths + self-check command.
+- Gates: tsc CLEAN, eslint CLEAN, bun test 35/35; live API regression 200 (devCode path); standalone rebuilt 17:28 (new code baked); prod-mode simulation: no-config→none, with-smtp→smtp real=true.
+
+Stage Summary:
+- Nothing was "broken" in the app: the screenshot came from a DEAD old preview link (410) + missing provider credentials. Feature verified working locally end-to-end.
+- Real email activates the moment user adds ONE of: RESEND_API_KEY / BREVO_API_KEY / SMTP(Gmail app password) to .env — then `bun scripts/test-email.ts <addr>` proves it, rebuild + restart applies it.
+- Rule: never tell the user "email works" without a provider-accepted message as evidence (250 Accepted / provider API 2xx).

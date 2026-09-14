@@ -30,6 +30,34 @@ function ensureEnvKey(key: string, bytes = 48): string {
   return value;
 }
 
+/** Read a simple KEY=value from the project .env file (cached, quote-stripped).
+ *  Process env always wins — this is only the fallback for deployments where
+ *  the shell environment does not carry the var (e.g. standalone server). */
+const __envFileCache: { loaded: boolean; map: Map<string, string> } = { loaded: false, map: new Map() };
+
+function envFileGet(key: string): string {
+  if (process.env[key]) return process.env[key]!;
+  if (!__envFileCache.loaded) {
+    __envFileCache.loaded = true;
+    try {
+      const envPath = join(ROOT, ".env");
+      if (existsSync(envPath)) {
+        for (const line of readFileSync(envPath, "utf8").split("\n")) {
+          const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+          if (m) {
+            let v = m[2];
+            if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+            __envFileCache.map.set(m[1], v);
+          }
+        }
+      }
+    } catch {
+      /* unreadable fs — process env only */
+    }
+  }
+  return __envFileCache.map.get(key) || "";
+}
+
 export const env = {
   get JWT_SECRET() {
     return ensureEnvKey("JWT_SECRET");
@@ -142,24 +170,34 @@ export const env = {
     return parseInt(process.env.SMS_MAX_PER_HOUR || "10", 10);
   },
   // ---------- EMAIL (signup / login / welcome) ----------
+  // Email provider env vars support a .env-file fallback (same pattern as
+  // ensureEnvKey): the deployed standalone server may not inherit the shell
+  // environment, but it CAN read the project .env file at runtime.
   get SMTP_HOST() {
-    return process.env.SMTP_HOST || "";
+    return envFileGet("SMTP_HOST") || "";
   },
   get SMTP_PORT() {
-    return parseInt(process.env.SMTP_PORT || "587", 10);
+    return parseInt(envFileGet("SMTP_PORT") || "587", 10);
   },
   get SMTP_USER() {
-    return process.env.SMTP_USER || "";
+    return envFileGet("SMTP_USER") || "";
   },
   get SMTP_PASS() {
-    return process.env.SMTP_PASS || "";
+    return envFileGet("SMTP_PASS") || "";
   },
   get SMTP_SECURE() {
     // Auto: 465 → implicit TLS, otherwise STARTTLS (unless explicitly set).
-    return process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : this.SMTP_PORT === 465;
+    const raw = envFileGet("SMTP_SECURE");
+    return raw ? raw === "true" : this.SMTP_PORT === 465;
+  },
+  get RESEND_API_KEY() {
+    return envFileGet("RESEND_API_KEY") || "";
+  },
+  get BREVO_API_KEY() {
+    return envFileGet("BREVO_API_KEY") || "";
   },
   get EMAIL_FROM() {
-    return process.env.EMAIL_FROM || "Sada \u0635\u062f\u0649 <no-reply@sada.local>";
+    return envFileGet("EMAIL_FROM") || "Sada \u0635\u062f\u0649 <no-reply@sada.local>";
   },
   get EMAIL_RESEND_COOLDOWN_S() {
     // Email is slower than SMS and costs little — but cooldown still stops
