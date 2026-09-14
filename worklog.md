@@ -190,3 +190,20 @@ Stage Summary:
 - Repo LIVE: https://github.com/worldnewsportal/sada (main, CI wired). Zero secrets on GitHub despite near-miss (public repo + tracked .env with live keys).
 - Rule: BEFORE any first push, audit history for tracked secrets (git log --all -- .env* + pickaxe on known key prefixes); public repos make leaks permanent.
 - User advised to rotate: GitHub token (shared in chat) + consider rotating Gmail app password / Resend key (were in local history only, never pushed).
+
+---
+Task ID: 10
+Agent: main (Super Z)
+Task: "اعتقد فيه مشاكل تاكد من GitHub actions" — diagnose & fix failing CI on github.com/worldnewsportal/sada
+
+Work Log:
+- All 3 initial runs failed; failure migrated across 3 distinct root causes as each was fixed (run logs pulled via Actions API):
+  1. Typecheck TS2305 (`@prisma/client` has no exported member PrismaClient/Folder/Prisma): CI fresh install = client STUB, generation is a local artifact. Fixed: package.json `postinstall: prisma generate` + explicit "Generate Prisma client" CI step + Dockerfile.web copies prisma schema before install and runs bunx prisma generate; build stage copies node_modules/.prisma through.
+  2. Prisma validate P1012 "Environment variable not found: DATABASE_URL" — .env correctly gitignored, CI env empty. Fixed: inline DATABASE_URL="file:./db/test.db" for validate/tests/build steps; ALSO unified DB path with tests/setup.ts (was test-ci.db vs test.db mismatch) + mkdir -p db (dir is gitignored). Dockerfile.web build stage: ENV DATABASE_URL placeholder.
+  3. Docker realtime/worker images: bare `bun install socket.io @prisma/client` pulled @prisma/client@7.10.0 (latest major) → v7 CLI "CLI.UNKNOWN_COMMAND: No command registered for generate" (exit 2). Fixed: both Dockerfiles now COPY root package.json+bun.lock and `bun install --frozen-lockfile` (project pins prisma 6.11.1) + explicit bunx prisma generate; mini-services package.json shells (scripts-only) dropped from images.
+- Verified locally by dry-running exact CI steps: prisma validate ✓, db push ✓, bun test 45/45 ✓.
+- FINAL: run 34886907081 → quality SUCCESS (11 steps), docker SUCCESS (3 images), deploy SUCCESS. Pipeline fully green.
+
+Stage Summary:
+- GitHub Actions pipeline now green end-to-end on every push: lint → typecheck → prisma validate → integration tests (isolated DB) → build → audit → 3 docker images → deploy (manual-approval).
+- Rules: CI is a fresh machine — every locally-generated artifact (prisma client, .env values, DB files) must be explicitly produced in the pipeline; generators must use PINNED deps (frozen lockfile), never bare latest-major installs; keep CI/test DB paths consistent with tests/setup.ts.
