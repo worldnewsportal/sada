@@ -225,3 +225,22 @@ Work Log:
 Stage Summary:
 - Platform publication COMPLETE: code + docs + license + repo metadata on GitHub, pipeline green, local services healthy, email failover restored WITH proof.
 - Rule: git history rewrites can delete previously-tracked files from the WORKING TREE (filter-branch final checkout) — always re-verify .env-style untracked-but-critical files after any rewrite.
+
+---
+Task ID: 12
+Agent: main (Super Z)
+Task: "ليش ما تنشر الموقع على الانترنت باستخدام GitHub pages" → honest no (static-only) + prepare REAL one-click hosting
+
+Work Log:
+- Explained why GitHub Pages cannot host Sada (no server runtime / DB / WebSocket / secrets; static-only) — per no-mock policy a Pages deploy would be a broken shell.
+- Deploy topology decision: single ALL-IN-ONE container (web + realtime + worker) — required because SQLite file cannot be safely shared across separate containers (kernel file locks); all three share one SQLite + local media dir on ONE mounted volume.
+- NEW infrastructure/docker/Dockerfile.all-in-one (deps → generate → build → runner: standalone tree + FULL node_modules superset + src + mini-services + prisma; volume /app/data; HEALTHCHECK /api/v1/health) + start-all.sh (persists secrets to volume .env, pre-seeds JWT/PEPPER/INTERNAL before boot so ensureEnvKey never rotates them; prisma db push idempotent at boot; crash-propagation via wait -n → platform restart).
+- One-click configs: railway.json (DOCKERFILE builder, startCommand, healthcheck /api/v1/health, ON_FAILURE restart) + render.yaml blueprint (docker runtime, disk /app/data, generateValue secrets, ALLOW_TEST_PHONES=true demo) + DEPLOY.md (bilingual AR/EN: Railway 6 steps, Render button, first-boot table, smoke-test with +999 phone, honest free-tier-no-disk warning, VPS compose upgrade path).
+- README: Deploy section + Render one-click button.
+- Latent bug fixed: Dockerfile.web CMD ".next/standalone/server.js" was WRONG after standalone flatten-copy (never caught because images were only built, never run) → CMD ["bun","server.js"].
+- CI docker job now builds 4 images incl. all-in-one → CI run SUCCESS (real build verification, no local docker available in sandbox).
+- Local validations: bash -n start-all.sh ✓, render.yaml YAML ✓, railway.json JSON ✓, all COPY source paths exist ✓, tsconfig @/* aliases verified (../../src/* preserved by layout).
+
+Stage Summary:
+- Repo is now genuinely one-click deployable: user creates free Railway/Render account (login w/ GitHub) → button or 6 steps → public https URL with persistent data. Awaiting user's account/token to execute the final deployment.
+- Rules: SQLite multi-service deploys MUST share one kernel/volume; standalone COPY flattens paths — always re-derive CMD; CI building an image ≠ running it — CMD paths need runtime proof before claiming deployment health.
