@@ -207,3 +207,21 @@ Work Log:
 Stage Summary:
 - GitHub Actions pipeline now green end-to-end on every push: lint → typecheck → prisma validate → integration tests (isolated DB) → build → audit → 3 docker images → deploy (manual-approval).
 - Rules: CI is a fresh machine — every locally-generated artifact (prisma client, .env values, DB files) must be explicitly produced in the pipeline; generators must use PINNED deps (frozen lockfile), never bare latest-major installs; keep CI/test DB paths consistent with tests/setup.ts.
+
+---
+Task ID: 11
+Agent: main (Super Z)
+Task: "اكمل كل شيء و انشر المنصة في GitHub" — final completion pass + full publication
+
+Work Log:
+- Full-state audit: git clean, web :3000 / realtime :3003 / gateway :81 all healthy.
+- CRITICAL FIND: .env was DELETED from disk by the git filter-branch rewrite (file was tracked in old history → final checkout removed it). Running services unaffected (env in memory) but any restart would have silently lost the email chain. Recreated .env from documented session values (DB path, RESEND_API_KEY, EMAIL_FROM, SMTP gmail app-password, EMAIL_CHAIN=smtp,resend), chmod 600. Secrets (JWT/PEPPER/INTERNAL) auto-regen+persist on next boot by design (ensureEnvKey appendFileSync).
+- VERIFIED restored chain: --status → failover (smtp → resend), real delivery YES; REAL send to owner address ACCEPTED (Sent! code 329410) — evidence per worklog rule.
+- Quality gates re-run: tsc CLEAN, eslint CLEAN, bun test 45/45.
+- Publication polish: README + "Highlights (latest release)" section (bottom bar, deletion, mandatory username/password, email failover, chat/speed fixes), 25→45 test refs, `bun run deploy` command row, new §Email delivery (self-host guide incl. Gmail App Password path); added MIT LICENSE.
+- GitHub repo metadata set via API: bilingual description + 12 topics (messenger, realtime, pwa, nextjs, socket-io, prisma, bun, webrtc, ci-cd…).
+- Deployed (e8b87c3) → CI run completed / SUCCESS.
+
+Stage Summary:
+- Platform publication COMPLETE: code + docs + license + repo metadata on GitHub, pipeline green, local services healthy, email failover restored WITH proof.
+- Rule: git history rewrites can delete previously-tracked files from the WORKING TREE (filter-branch final checkout) — always re-verify .env-style untracked-but-critical files after any rewrite.
