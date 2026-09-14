@@ -13,6 +13,22 @@ rules, phased implementation order, and an honest no-demo/no-mock policy).
 > unchanged. Everything else (backend, realtime, worker, admin, storage,
 > docs, tests, infra) follows the spec directly.
 
+## Highlights (latest release)
+
+- **Mobile UI**: navigation moved to a fixed bottom bar (safe-area aware); the
+  top bar carries only search; floating "new chat" action; unread badges.
+- **Account controls**: real account deletion (password-confirmed, tombstones
+  PII, revokes every session, **username reserved forever**) + logout everywhere.
+- **Mandatory identity**: password required at signup (policy-checked, bcrypt-12);
+  usernames required, lowercased, **globally unique forever** (`MGO3` blocks
+  `mgo3`/`MgO3`) with live availability checks + race-safe 409.
+- **Email done properly**: registration/login by email (activation code +
+  welcome), and a **live failover chain** — Gmail SMTP primary → Resend backup
+  → Brevo — configured purely via `.env`, applied without restarts.
+- **Chat/speed**: instant push for brand-new chats (room fan-out fix),
+  coalesced list refresh, typing indicators auto-expire, reconnect-on-online,
+  jump-to-latest, duplicate-bubble fix.
+
 ## Quick start
 
 ```bash
@@ -75,11 +91,12 @@ tests/                             # bun:test integration+unit suite (25 tests)
 |---|---|
 | `bun run dev` | API + client (port 3000) |
 | `bun run lint` / `bunx tsc --noEmit` | quality gates |
-| `bun test tests/` | 25-test suite (isolated DB, auto-preloaded) |
+| `bun test tests/` | 45-test suite (isolated DB, auto-preloaded) |
 | `bun scripts/seed.ts` | demo data |
 | `bun scripts/load-test.ts 10 5` | load test (p50/p95, honest bottleneck notes) |
 | `bash scripts/smoke-test.sh` | two-user end-to-end API flow |
 | `bash scripts/backup.sh ./backups` | DB + media backup w/ retention |
+| `bun run deploy [msg]` | commit everything + push to GitHub (CI runs automatically) |
 | `bun scripts/gen-vapid.ts` | Web Push keys → .env |
 
 ## Engineering rules honored (spec §50)
@@ -88,4 +105,17 @@ PostgreSQL is truth (Redis caches only) · API never proxies large files ·
 workers own expensive jobs · client is never trusted for authorization ·
 no invented cryptography · no hardcoded secrets · **no mock implementations
 behind "production-ready" claims** — every feature above maps to executed
-code, 25 passing tests, and a two-user live smoke run.
+executable code, 45 passing tests, and a two-user live smoke run.
+
+## Email delivery (self-host note)
+
+Real delivery activates the moment ONE provider is configured in `.env`
+(verified by `bun scripts/test-email.ts <address>`):
+
+- **Gmail SMTP** (universal): `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`,
+  `SMTP_USER=<you>@gmail.com`, `SMTP_PASS=` a Google **App Password**
+  (myaccount.google.com → Security → 2-Step Verification → App passwords).
+- **Resend** (`RESEND_API_KEY`) / **Brevo** (`BREVO_API_KEY`) — API providers;
+  Resend test mode delivers only to the account owner until a domain is
+  verified at resend.com/domains.
+- Chain order override: `EMAIL_CHAIN=smtp,resend,brevo` (unset = automatic).
