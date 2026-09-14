@@ -13,7 +13,16 @@ import { createMediaUrl, verifyMediaUrl, internalSignature, verifyInternalSignat
 import { enforceRateLimit, rateStore } from "../src/lib/server/security/rate-limit";
 import { sniffMime, sanitizeFilename, validateUpload } from "../src/lib/server/security/file-validation";
 import { Router, createApiHandler } from "../src/lib/server/api";
-import { renderEmailOtp, resolveEmailProviderName, EMAIL_NOT_CONFIGURED_MESSAGE } from "../src/lib/server/security/email";
+import {
+  renderEmailOtp,
+  resolveEmailProviderName,
+  configuredEmailChain,
+  FailoverEmailProvider,
+  describeResendError,
+  describeBrevoError,
+  EMAIL_NOT_CONFIGURED_MESSAGE,
+  type EmailProvider,
+} from "../src/lib/server/security/email";
 
 const db = new PrismaClient({
   datasourceUrl: process.env.DATABASE_URL,
@@ -478,38 +487,45 @@ describe("email provider resolution (env matrix)", () => {
   test("no config + production → provider 'none' (hard fail with bilingual message)", () => {
     setEnv({});
     process.env.NODE_ENV = "production";
-    // bust the cached status? resolver is pure per-call — just call it
     const status = resolveEmailProviderName();
     expect(status.real).toBe(false);
     expect(status.provider).toBe("none");
     expect(EMAIL_NOT_CONFIGURED_MESSAGE).toContain("Email delivery is not configured");
   });
 
-  test("smtp trio wins when no API key present", () => {
+  test("smtp trio alone → single provider (no failover wrapper needed)", () => {
     setEnv({ SMTP_HOST: "smtp.gmail.com", SMTP_USER: "a@gmail.com", SMTP_PASS: "app-pass" });
     const status = resolveEmailProviderName();
     expect(status.provider).toBe("smtp");
     expect(status.real).toBe(true);
+    expect(status.chain).toEqual(["smtp"]);
     expect(status.hint).toContain("smtp.gmail.com");
   });
 
-  test("RESEND_API_KEY outranks SMTP (documented order)", () => {
-    setEnv({ RESEND_API_KEY: "re_x", SMTP_HOST: "smtp.gmail.com", SMTP_USER: "a@gmail.com", SMTP_PASS: "p" });
-    expect(resolveEmailProviderName().provider).toBe("resend");
+  test("all three configured → failover chain in documented order", () => {
+    setEnv({ RESEND_API_KEY: "re_x", BREVO_API_KEY: "xk_y", SMTP_HOST: "h", SMTP_USER: "u", SMTP_PASS: "p" });
+    expect(configuredEmailChain()).toEqual(["resend", "brevo", "smtp"]);
+    const status = resolveEmailProviderName();
+    expect(status.provider).toBe("failover");
+    expect(status.real).toBe(true);
+    expect(status.hint).toContain("failover");
   });
 
-  test("BREVO_API_KEY outranks SMTP, loses to RESEND", () => {
-    setEnv({ BREVO_API_KEY: "xkeysib-x", SMTP_HOST: "h", SMTP_USER: "u", SMTP_PASS: "p" });
+  test("two configured → chain keeps order, lead = first", () => {
+    setEnv({ RESEND_API_KEY: "re_x", SMTP_HOST: "smtp.gmail.com", SMTP_USER: "a@gmail.com", SMTP_PASS: "p" });
+    expect(configuredEmailChain()[0]).toBe("resend");
+    expect(resolveEmailProviderName().provider).toBe("failover");
+  });
+
+  test("BREVO alone → lead provider", () => {
+    setEnv({ BREVO_API_KEY: "xkeysib-x" });
     expect(resolveEmailProviderName().provider).toBe("brevo");
-    process.env.RESEND_API_KEY = "re_x";
-    expect(resolveEmailProviderName().provider).toBe("resend");
-    delete process.env.RESEND_API_KEY;
   });
 
   test("partial SMTP (missing pass) is NOT real — no half-configured false positive", () => {
     setEnv({ SMTP_HOST: "smtp.gmail.com", SMTP_USER: "a@gmail.com" });
-    const status = resolveEmailProviderName();
-    expect(status.real).toBe(false);
+    expect(configuredEmailChain()).toEqual([]);
+    expect(resolveEmailProviderName().real).toBe(false);
   });
 
   test("dev with no config falls back to console echo", () => {
@@ -518,6 +534,41 @@ describe("email provider resolution (env matrix)", () => {
     const status = resolveEmailProviderName();
     expect(status.provider).toBe("console");
     expect(status.real).toBe(false);
+  });
+
+  test("failover: first provider failure falls through to the next", async () => {
+    const calls: string[] = [];
+    const failing: EmailProvider = { name: "resend", send: async () => { calls.push("resend"); throw new Error("403"); } };
+    const working: EmailProvider = { name: "smtp", send: async () => { calls.push("smtp"); return "250 OK"; } };
+    const info = await new FailoverEmailProvider([failing, working]).send({ to: "x@y.z", subject: "s", html: "h", text: "t" });
+    expect(info).toBe("250 OK");
+    expect(calls).toEqual(["resend", "smtp"]);
+  });
+
+  test("failover: all providers fail → last error propagates", async () => {
+    const p = (n: EmailProvider["name"]) => ({ name: n, send: async () => { throw new Error(`boom-${n}`); } });
+    try {
+      await new FailoverEmailProvider([p("resend"), p("brevo")]).send({ to: "x@y.z", subject: "s", html: "h", text: "t" });
+      throw new Error("should have thrown");
+    } catch (e) {
+      expect((e as Error).message).toBe("boom-brevo");
+    }
+  });
+
+  test("Resend error mapping: invalid key, test-mode sandbox, From rejection — all key-free and bilingual", () => {
+    expect(describeResendError(401, `{"message":"Invalid API key"}`)).toContain("RESEND_API_KEY");
+    const sandbox = describeResendError(403, `You can only send testing emails to your own email address (x@y.z). To send emails to other recipients, please verify a domain`);
+    expect(sandbox).toContain("وضع الاختبار");
+    expect(sandbox).toContain("resend.com/domains");
+    expect(sandbox).not.toContain("x@y.z"); // never echo recipient/account data
+    expect(describeResendError(422, `The from address you typed does not match a verified domain`)).toContain("onboarding@resend.dev");
+    expect(describeResendError(500, "weird")).toContain("أعد المحاولة");
+  });
+
+  test("Brevo error mapping: unauthorized → clear bilingual hint", () => {
+    expect(describeBrevoError(401, "unauthorized")).toContain("BREVO_API_KEY");
+    expect(describeBrevoError(403, `{"message":"Key does not have required permissions"}`)).toContain("BREVO_API_KEY");
+    expect(describeBrevoError(500, "whatever")).toContain("أعد المحاولة");
   });
 
   test("welcome template is bilingual and carries the code", () => {

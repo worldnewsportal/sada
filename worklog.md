@@ -112,3 +112,23 @@ Stage Summary:
 - Nothing was "broken" in the app: the screenshot came from a DEAD old preview link (410) + missing provider credentials. Feature verified working locally end-to-end.
 - Real email activates the moment user adds ONE of: RESEND_API_KEY / BREVO_API_KEY / SMTP(Gmail app password) to .env — then `bun scripts/test-email.ts <addr>` proves it, rebuild + restart applies it.
 - Rule: never tell the user "email works" without a provider-accepted message as evidence (250 Accepted / provider API 2xx).
+
+---
+Task ID: 6
+Agent: main (Super Z)
+Task: "تقدر تخلي كل الطرق؟ كأحتياط اذا تعطل واحد" — user provided RESEND_API_KEY, asked for ALL providers with failover; asked what SMTP_PASS is (thought any random password works)
+
+Work Log:
+- .env: added real RESEND_API_KEY + EMAIL_FROM="Sada صدى <onboarding@resend.dev>" (git-ignored file).
+- email.ts rewritten as FAILOVER chain: configuredEmailChain() = [resend, brevo, smtp] (configured only); 1 provider → direct, ≥2 → FailoverEmailProvider (tries in order, falls through on failure, last error propagates). getEmailProvider() re-evaluates when the chain changes → .env edits apply LIVE (no restart).
+- HttpApiProvider base for Resend/Brevo (fetch, 15s timeout); describeResendError/describeBrevoError map 401→invalid-key, Resend sandbox→"verify domain at resend.com/domains or enable Gmail SMTP", From-rejection→use onboarding@resend.dev — bilingual, never echo keys/recipients.
+- SmtpEmailProvider.effectiveFrom now also treats resend.dev From as placeholder (Gmail SMTP overrides with the authenticated address).
+- env.ts: envFileGet cache now mtime-checked → .env edits apply live.
+- REAL VERIFICATION: (1) scripts/test-email.ts via Resend → 403 test-mode for ghkv04885@gmail.com (revealed account owner = dgd711573@gmail.com); (2) real send to dgd711573@gmail.com → ACCEPTED, arrived in inbox (welcome + code 700708); (3) live app flow POST /api/v1/auth/request-email-otp → {"delivery":"email"} 200 — real email through the actual signup endpoint, devCode no longer returned.
+- tests: rewritten provider matrix (chain order, failover fall-through/all-fail, error mappers incl. no-recipient-echo, single-vs-failover naming) + KEY FINDING: bun test RE-INJECTS .env after preload → preload `delete` does NOT stick; `process.env[k]=""` DOES (loader skips set vars). tests/setup.ts now: empty-string isolation + PROJECT_ROOT sandbox (mkdtemp .env) so tests never hit the live API.
+- Gates: bun test 40/40 PASS, tsc CLEAN, eslint CLEAN; standalone rebuilt.
+
+Stage Summary:
+- Email failover chain LIVE: resend active now; brevo (BREVO_API_KEY) and/or Gmail SMTP (SMTP_HOST/USER/PASS app-password) auto-join as backups the moment their keys land in .env.
+- CONSTRAINT (told user): Resend test mode delivers ONLY to dgd711573@gmail.com until a domain is verified. Universal delivery options: verify a (free) domain in Resend, add Brevo with verified sender, or add Gmail app password — any of them slots into the failover chain automatically.
+- SMTP_PASS clarified to user: NOT a random password — Google App Password generated only by the account owner (needs 2FA).

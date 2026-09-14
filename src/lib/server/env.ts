@@ -1,7 +1,7 @@
 // Environment & secrets management (spec §45, §28: never hardcode secrets).
 // All secrets come from env; dev secrets are auto-generated once and persisted
 // to .env so they survive restarts but are never committed.
-import { existsSync, readFileSync, appendFileSync } from "fs";
+import { existsSync, readFileSync, appendFileSync, statSync } from "fs";
 import { join } from "path";
 import { randomBytes } from "crypto";
 
@@ -30,31 +30,38 @@ function ensureEnvKey(key: string, bytes = 48): string {
   return value;
 }
 
-/** Read a simple KEY=value from the project .env file (cached, quote-stripped).
- *  Process env always wins — this is only the fallback for deployments where
- *  the shell environment does not carry the var (e.g. standalone server). */
-const __envFileCache: { loaded: boolean; map: Map<string, string> } = { loaded: false, map: new Map() };
+/** Read a simple KEY=value from the project .env file (mtime-checked cache,
+ *  quote-stripped). Process env always wins — this is only the fallback for
+ *  deployments where the shell environment does not carry the var (e.g.
+ *  standalone server). Editing .env takes effect on the NEXT read — no
+ *  restart needed (the file is re-parsed when its mtime changes). */
+const __envFileCache: { mtimeMs: number; map: Map<string, string> } = { mtimeMs: -1, map: new Map() };
+
+function loadEnvFile() {
+  try {
+    const envPath = join(ROOT, ".env");
+    const mtime = statSync(envPath).mtimeMs;
+    if (mtime === __envFileCache.mtimeMs) return;
+    __envFileCache.mtimeMs = mtime;
+    __envFileCache.map = new Map();
+    for (const line of readFileSync(envPath, "utf8").split("\n")) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (m) {
+        let v = m[2];
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+        __envFileCache.map.set(m[1], v);
+      }
+    }
+  } catch {
+    /* unreadable/missing file — process env only */
+    __envFileCache.mtimeMs = -1;
+    __envFileCache.map = new Map();
+  }
+}
 
 function envFileGet(key: string): string {
   if (process.env[key]) return process.env[key]!;
-  if (!__envFileCache.loaded) {
-    __envFileCache.loaded = true;
-    try {
-      const envPath = join(ROOT, ".env");
-      if (existsSync(envPath)) {
-        for (const line of readFileSync(envPath, "utf8").split("\n")) {
-          const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-          if (m) {
-            let v = m[2];
-            if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
-            __envFileCache.map.set(m[1], v);
-          }
-        }
-      }
-    } catch {
-      /* unreadable fs — process env only */
-    }
-  }
+  loadEnvFile();
   return __envFileCache.map.get(key) || "";
 }
 
