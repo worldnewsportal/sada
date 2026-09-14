@@ -1,12 +1,16 @@
 # syntax=docker/dockerfile:1
 # ---- Sada Realtime (socket.io gateway) ----
+# Install the FULL frozen dependency tree (bun.lock) so prisma/socket.io
+# versions match the tested monorepo exactly — a bare `bun install
+# @prisma/client` pulls latest (v7) whose CLI broke `prisma generate`.
 FROM oven/bun:1
 WORKDIR /srv
-COPY mini-services/realtime/package.json ./
+COPY package.json bun.lock ./
+COPY prisma ./prisma
+RUN bun install --frozen-lockfile
+RUN bunx prisma generate
 COPY src ./src
 COPY mini-services/realtime/index.ts ./index.ts
-COPY prisma ./prisma
-RUN bun install socket.io @prisma/client && bunx prisma generate
 EXPOSE 3003
 HEALTHCHECK --interval=30s --timeout=5s CMD curl -sf http://localhost:3003/internal/health || exit 1
 CMD ["bun", "index.ts"]
