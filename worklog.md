@@ -171,3 +171,22 @@ Work Log:
 Stage Summary:
 - All 6 user asks shipped and browser-verified: bottom bar + search-only top, REAL account deletion (was broken), logout, mandatory password, mandatory forever-unique usernames, chat/speed/connection overhaul (instant new-chat push + no-dup events + coalesced refresh + reconnect-on-online + typing expiry + jump button).
 - Rule: /internal/emit-style handlers must own their routing in the single createServer listener; never advance a tail cursor from a push path that isn't proven working.
+
+---
+Task ID: 9
+Agent: main (Super Z)
+Task: "هيئ المشروع و اجعله ينشر تلقائيا في GitHub" — publish to github.com/worldnewsportal/sada with auto-publish tooling
+
+Work Log:
+- CRITICAL pre-push security gate: repo is PUBLIC and `.env` (JWT_SECRET, APP_PEPPER, INTERNAL_SECRET, RESEND_API_KEY, Gmail SMTP_PASS) was TRACKED and in history; db/custom.db (user data) tracked too; worklog.md contained the literal Gmail app password (Task 7 line).
+- Purged via git filter-branch ×2 (index-filter for .env + db/custom.db; tree-filter sed for the app-password string in worklog.md) → refs/original removed, reflog expired, gc --prune=now --aggressive.
+- VERIFIED clean: `git log --all -- .env` empty; pickaxe -S for app password + resend key EMPTY; `git grep` of all secret strings at HEAD CLEAN; db history empty.
+- .gitignore: added *.db, db/, /backups/, /test-results/, /playwright-report/ (runtime data never published).
+- Remote origin set (token embedded in local .git/config only — never committed/pushed). Remote was empty → clean first push of main (11 commits).
+- Auto-publish: scripts/deploy.sh (add -A → commit or "nothing to publish" → push origin main → CI notice) + package.json `deploy` script → `bun run deploy [message]`. CI (.github/workflows/ci.yml) auto-runs on every push: lint → tsc → prisma validate → isolated-DB integration tests → build → audit → docker builds; deploy job stays manual-approval.
+- bun.lock confirmed tracked (CI --frozen-lockfile needs it).
+
+Stage Summary:
+- Repo LIVE: https://github.com/worldnewsportal/sada (main, CI wired). Zero secrets on GitHub despite near-miss (public repo + tracked .env with live keys).
+- Rule: BEFORE any first push, audit history for tracked secrets (git log --all -- .env* + pickaxe on known key prefixes); public repos make leaks permanent.
+- User advised to rotate: GitHub token (shared in chat) + consider rotating Gmail app password / Resend key (were in local history only, never pushed).
