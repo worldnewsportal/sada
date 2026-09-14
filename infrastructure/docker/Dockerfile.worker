@@ -1,0 +1,12 @@
+# syntax=docker/dockerfile:1
+# ---- Sada Worker (background jobs) — includes ffmpeg for transcoding ----
+FROM oven/bun:1
+WORKDIR /srv
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+COPY mini-services/worker/package.json ./
+COPY src ./src
+COPY mini-services/worker/index.ts ./index.ts
+COPY mini-services/worker/src ./worker-src
+COPY prisma ./prisma
+RUN bun install && bunx prisma generate
+CMD ["bun", "index.ts"]

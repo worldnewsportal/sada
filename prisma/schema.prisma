@@ -1,0 +1,594 @@
+// ============================================================
+// Sada Messenger — Production Schema (Sada / صدى)
+// SQLite for local dev; prisma/schema.postgres.prisma is the
+// production variant (same models, Postgres provider + FTS).
+//
+// Engineering decisions (documented in docs/architecture.md):
+// - "devices" merged into Session (1 session = 1 device login)
+// - message_reads / message_deliveries denormalized into
+//   ChatMember.lastReadSeq / lastDeliveredSeq (avoids O(members×messages)
+//   row explosion in large groups/channels)
+// - groups & channels are Chat rows with type=group|channel and a
+//   ChannelMember table kept separate from ChatMember (spec §21)
+// - saved_messages implemented as a per-user Chat(type=saved)
+// - JSON-valued columns are String fields holding serialized JSON
+//   (SQLite has no JSON scalar in Prisma)
+// - Message.seq / Event.seq are the global ordering + pagination cursors
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Identity ----------
+
+model User {
+  id               String    @id
+  phone            String    @unique // E.164
+  phoneHash        String    @unique // sha256(phone + APP_PEPPER) for privacy-preserving contact sync
+  email            String?   @unique
+  username         String?   @unique // globally unique, [a-z0-9_]{4,32}
+  displayName      String
+  bio              String?
+  avatarMediaId    String?
+  avatarColor      Int       @default(0) // fallback gradient index
+  isBot            Boolean   @default(false)
+  isVerified       Boolean   @default(false)
+  // 2FA (TOTP, RFC 6238 — standard algorithm, secret encrypted at rest)
+  twofaSecret      String?
+  twofaEnabled     Boolean   @default(false)
+  // moderation
+  bannedUntil      DateTime?
+  banReason        String?
+  deletedAt        DateTime? // account deletion (anonymized tombstone)
+  lastSeenAt       DateTime? // throttled writes (presence detail lives in Redis/memory)
+  contactsSyncedAt DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  sessions       Session[]
+  memberships    ChatMember[]
+  channelMembers ChannelMember[]
+  sentMessages   Message[]          @relation("sender")
+  mediaObjects   MediaObject[]
+  uploads        UploadSession[]
+  settings       UserSettings?
+  privacy        UserPrivacy?
+  blocksIssued   BlockedUser[]      @relation("blocker")
+  blocksReceived BlockedUser[]      @relation("blocked")
+  reportsFiled   Report[]           @relation("reporter")
+  notifications  Notification[]
+  drafts         Draft[]
+  folders        Folder[]
+  contacts       Contact[]          @relation("owner")
+  contactOf      Contact[]          @relation("contactUser")
+  pushSubs       PushSubscription[]
+  joinRequests   JoinRequest[]
+  devicesToken   String? // reserved: future per-device encryption blob
+
+  @@index([username])
+  @@index([phoneHash])
+  @@index([lastSeenAt])
+}
+
+model Session {
+  id               String    @id
+  userId           String
+  refreshTokenHash String    @unique // sha256(refresh) — rotation with reuse detection
+  deviceName       String    @default("Unknown device")
+  platform         String    @default("web") // android|ios|web|desktop
+  appVersion       String?
+  ip               String?
+  userAgent        String?
+  pushToken        String? // per-device FCM/APNs token (web push uses PushSubscription)
+  lastEventSeq     Int       @default(0) // per-device sync cursor (offline reconciliation)
+  createdAt        DateTime  @default(now())
+  lastActiveAt     DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  revokedReason    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+model OtpCode {
+  id         String    @id
+  phone      String
+  purpose    String    @default("login") // login|delete
+  codeHash   String // sha256(code + salt) — never plaintext (spec §15)
+  salt       String
+  attempts   Int       @default(0)
+  ip         String?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+}
+
+// ---------- Chats ----------
+
+model Chat {
+  id               String    @id // ULID
+  type             String // private | group | channel | saved
+  title            String?
+  username         String?   @unique // public groups/channels
+  about            String?
+  avatarMediaId    String?
+  isPublic         Boolean   @default(false)
+  ownerId          String?
+  // JSON PermissionSet — granular defaults for plain members (spec §20)
+  defaultPerms     String?
+  slowModeSeconds  Int       @default(0)
+  // channel comments: linked discussion group
+  discussionChatId String?
+  // denormalized feed cache
+  lastMessageSeq   Int       @default(0)
+  lastMessageAt    DateTime?
+  lastMsgPreview   String? // JSON {kind,text,senderName,editedAt}
+  memberCount      Int       @default(0) // authoritative counter for channels
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  members        ChatMember[]
+  channelMembers ChannelMember[]
+  messages       Message[]
+  invites        Invite[]
+  joinRequests   JoinRequest[]
+  pinnedMessages PinnedMessage[]
+  folderEntries  FolderChat[]
+
+  @@index([type, isPublic])
+  @@index([lastMessageAt])
+  @@index([username])
+}
+
+model ChatMember {
+  id               String    @id
+  chatId           String
+  userId           String
+  role             String    @default("member") // owner|admin|moderator|member|restricted
+  permsOverride    String? // JSON PermissionSet delta
+  // delivery/read state (denormalized receipts — see header note)
+  lastReadSeq      Int       @default(0)
+  lastDeliveredSeq Int       @default(0)
+  unreadCount      Int       @default(0)
+  mentionCount     Int       @default(0)
+  mutedUntil       DateTime?
+  archived         Boolean   @default(false)
+  pinned           Boolean   @default(false)
+  pinnedOrder      Int       @default(0)
+  bannedUntil      DateTime? // group-level ban
+  invitedBy        String?
+  customTitle      String?
+  joinedAt         DateTime  @default(now())
+  leftAt           DateTime?
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+  @@index([userId, leftAt])
+  @@index([chatId, role])
+  @@index([userId, archived])
+}
+
+// Channel subscribers — separate membership table (spec §21), designed
+// to scale to very large counts (counters denormalized on Chat).
+model ChannelMember {
+  id          String    @id
+  chatId      String
+  userId      String
+  role        String    @default("subscriber") // owner|admin|subscriber
+  muted       Boolean   @default(false)
+  lastReadSeq Int       @default(0)
+  joinedAt    DateTime  @default(now())
+  leftAt      DateTime?
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+  @@index([userId, leftAt])
+}
+
+// ---------- Messages ----------
+
+model Message {
+  id                String    @id // ULID (stable public id, sortable)
+  // Global chat-message ordering + pagination cursor (spec §13).
+  // Assigned transactionally (max+1) — SQLite serializes writers;
+  // the Postgres production schema uses GENERATED ALWAYS AS IDENTITY.
+  seq               Int       @unique
+  chatId            String
+  senderId          String?
+  kind              String    @default("text") // text|media|system|service
+  text              String? // 4096 chars max
+  status            String    @default("sent") // scheduled|sent|deleted
+  replyToId         String?
+  rootMessageId     String? // channel comments / future threads
+  forwardFromChatId String?
+  forwardFromMsgId  String?
+  forwardOriginName String?
+  editedAt          DateTime?
+  deletedAt         DateTime?
+  deletedBy         String?
+  scheduledAt       DateTime?
+  entities          String? // JSON [{type:mention|url|bold..., offset, length}]
+  clientMsgId       String? // idempotency key (unique per sender+chat)
+  meta              String? // JSON (system payloads, sticker emoji, etc.)
+
+  createdAt DateTime @default(now())
+
+  chat        Chat              @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender      User?             @relation("sender", fields: [senderId], references: [id])
+  reactions   MessageReaction[]
+  attachments Attachment[]
+  pinnedIn    PinnedMessage[]
+
+  @@unique([chatId, senderId, clientMsgId]) // idempotent send
+  @@index([chatId, seq]) // cursor pagination (spec §13)
+  @@index([chatId, createdAt])
+  @@index([senderId])
+  @@index([rootMessageId])
+  @@index([status, scheduledAt])
+}
+
+model MessageReaction {
+  id        String   @id
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+model Attachment {
+  id        String  @id
+  messageId String
+  mediaId   String?
+  kind      String // image|video|audio|voice|document|sticker|gif
+  orderIdx  Int     @default(0)
+  filename  String?
+  size      Int?
+  mime      String?
+  meta      String? // JSON {w,h,durationMs,peaks,emoji,...}
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([mediaId])
+}
+
+model PinnedMessage {
+  id        String   @id
+  chatId    String
+  messageId String
+  pinnedBy  String
+  orderIdx  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  chat    Chat    @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, messageId])
+  @@index([chatId])
+}
+
+// ---------- Media (spec §8: never proxy large files through API) ----------
+
+model MediaObject {
+  id         String   @id // ULID
+  ownerId    String
+  kind       String // image|video|audio|voice|document|sticker|avatar
+  mime       String // server-sniffed (never trust client MIME — spec §42)
+  size       Int // original bytes
+  sha256     String
+  storageKey String // content-addressed: media/<h2>/<hash>/original
+  width      Int?
+  height     Int?
+  durationMs Int?
+  blurData   String? // tiny base64 placeholder
+  // JSON variants: {thumb:{key,w,h,size}, medium:{...}, optimized:{...}}
+  variants   String?
+  scanStatus String   @default("clean") // clean|pending|infected (worker architecture)
+  status     String   @default("ready") // uploading|ready|failed
+  createdAt  DateTime @default(now())
+
+  owner User @relation(fields: [ownerId], references: [id])
+
+  @@index([sha256])
+  @@index([ownerId, createdAt])
+}
+
+model UploadSession {
+  id            String    @id
+  userId        String
+  kind          String
+  filename      String
+  declaredMime  String
+  declaredSize  Int
+  maxBytes      Int
+  status        String    @default("pending") // pending|uploaded|completed|aborted|expired
+  storageKey    String // uploads/<id>/data (multipart: part-<n>)
+  receivedBytes Int       @default(0)
+  partCount     Int       @default(0)
+  checksum      String? // sha256 declared by client; verified server-side
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  owner User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([expiresAt])
+}
+
+// ---------- Social ----------
+
+model BlockedUser {
+  id        String   @id
+  userId    String // blocker
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("blocker", fields: [userId], references: [id], onDelete: Cascade)
+  blocked User @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, blockedId])
+  @@index([userId])
+}
+
+model Contact {
+  id            String   @id
+  ownerId       String
+  contactUserId String? // matched user (nullable = not on platform yet)
+  phoneHash     String
+  displayName   String // local name on the device
+  createdAt     DateTime @default(now())
+
+  owner       User  @relation("owner", fields: [ownerId], references: [id], onDelete: Cascade)
+  contactUser User? @relation("contactUser", fields: [contactUserId], references: [id])
+
+  @@unique([ownerId, phoneHash])
+  @@index([ownerId])
+}
+
+model Invite {
+  id         String    @id
+  chatId     String
+  code       String    @unique // share link + QR (spec §75-78)
+  createdBy  String
+  expiresAt  DateTime?
+  usageLimit Int?
+  useCount   Int       @default(0)
+  isRevoked  Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId])
+}
+
+model JoinRequest {
+  id        String   @id
+  chatId    String
+  userId    String
+  status    String   @default("pending") // pending|approved|declined
+  createdAt DateTime @default(now())
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+}
+
+// ---------- Personal organization ----------
+
+model UserSettings {
+  userId             String  @id
+  theme              String  @default("system") // light|dark|system
+  locale             String  @default("ar") // ar|en
+  notifJson          String? // JSON global notification prefs
+  autoDownloadJson   String? // JSON {wifi:{photos,videos,files}, cellular:{...}}
+  maxCacheMb         Int     @default(2048)
+  mediaRetentionDays Int     @default(0) // 0 = forever
+  privacyJson        String? // reserved future flags
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserPrivacy {
+  userId             String  @id
+  lastSeenVisibility String  @default("everyone") // everyone|contacts|nobody
+  phoneVisibility    String  @default("contacts")
+  photoVisibility    String  @default("everyone")
+  whoCanInviteMe     String  @default("everyone")
+  whoCanMessageMe    String  @default("everyone") // strangers DM policy
+  readReceipts       Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Draft {
+  id        String   @id
+  chatId    String
+  userId    String
+  text      String   @default("")
+  replyToId String?
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+  @@index([userId])
+}
+
+model Folder {
+  id        String  @id
+  userId    String
+  name      String
+  icon      String?
+  orderIdx  Int     @default(0)
+  // JSON rules: {includeTypes:[], excludeMuted:false} — manual membership below
+  rulesJson String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  entries FolderChat[]
+
+  @@index([userId])
+}
+
+model FolderChat {
+  id       String @id
+  folderId String
+  chatId   String
+
+  folder Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@unique([folderId, chatId])
+  @@index([chatId])
+}
+
+// ---------- Platform ----------
+
+model Notification {
+  id        String    @id
+  userId    String
+  type      String // message|mention|reaction|invite|admin|system
+  chatId    String?
+  messageId String?
+  title     String
+  body      String
+  dataJson  String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+model PushSubscription {
+  id         String   @id
+  userId     String
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  sessionRef String? // device linkage
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Report {
+  id          String    @id
+  reporterId  String
+  targetType  String // user|message|chat
+  targetId    String
+  category    String // spam|harassment|illegal_content|copyright|violence|scam|other
+  description String?
+  status      String    @default("open") // open|reviewing|resolved|dismissed
+  handledBy   String?
+  resolution  String?
+  createdAt   DateTime  @default(now())
+  handledAt   DateTime?
+
+  reporter User @relation("reporter", fields: [reporterId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+}
+
+model AuditLog {
+  id         String   @id
+  actorType  String // user|admin|system
+  actorId    String?
+  action     String
+  targetType String?
+  targetId   String?
+  detailJson String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId])
+}
+
+model AdminUser {
+  id           String    @id
+  username     String    @unique
+  passwordHash String // bcrypt cost 12
+  role         String    @default("moderator") // superadmin|moderator
+  totpSecret   String?
+  totpEnabled  Boolean   @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+// Event log — the offline-sync backbone (spec §6, §33).
+// Every state change appends an ordered event; devices reconcile via
+// GET /api/v1/sync?since=<seq>. Pruned by worker after retention days.
+model Event {
+  seq          Int      @id @default(autoincrement())
+  type         String
+  chatId       String? // fan-out scope: chat members
+  targetUserId String? // fan-out scope: single user
+  actorId      String?
+  payloadJson  String
+  createdAt    DateTime @default(now())
+
+  @@index([chatId, seq])
+  @@index([targetUserId, seq])
+}
+
+// Durable job queue (worker system, spec §29). Redis/BullMQ adapter in
+// production compose; DB queue keeps dev self-contained & honest.
+model Job {
+  id          String   @id
+  type        String // media.process|link.preview|push.send|cleanup|scheduled.send|account.delete|export.data|scan.file
+  status      String   @default("queued") // queued|running|done|failed|skipped
+  payloadJson String
+  runAt       DateTime @default(now())
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(5)
+  priority    Int      @default(0) // lower = sooner
+  dedupeKey   String?  @unique // collapse duplicate jobs
+  lastError   String?
+  resultJson  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, runAt, priority])
+  @@index([type, status])
+}
+
+model LinkPreview {
+  id           String   @id
+  urlHash      String   @unique
+  url          String
+  title        String?
+  description  String?
+  siteName     String?
+  imageUrl     String?
+  imageMediaId String?
+  fetchedAt    DateTime @default(now())
+}

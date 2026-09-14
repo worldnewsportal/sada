@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1
+# ---- Sada Web (Next.js API + client) — production image ----
+FROM oven/bun:1 AS deps
+WORKDIR /app
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+
+FROM oven/bun:1 AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NODE_ENV=production
+RUN bun run build || npx next build
+
+FROM oven/bun:1 AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN apt-get update && apt-get install -y --no-install-recommends sqlite3 && rm -rf /var/lib/apt/lists/*
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/db ./db
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s CMD curl -sf http://localhost:3000/api/v1/health || exit 1
+CMD ["bun", ".next/standalone/server.js"]

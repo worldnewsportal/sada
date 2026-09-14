@@ -1,0 +1,38 @@
+# Production reverse proxy: TLS, websocket upgrade, media cache (spec §8-9).
+# Caddy auto-provisions Let's Encrypt certificates.
+{$SITE_HOST:localhost} {
+	# WebSocket gateway
+	handle /ws/* {
+		rewrite * /
+		reverse_proxy realtime:3003
+	}
+
+	# Media: content-addressed, immutable → aggressive shared cache (spec §36)
+	handle /api/v1/media/file* {
+		reverse_proxy web:3000 {
+			header_up X-Forwarded-Proto {scheme}
+		}
+		header Cache-Control "private, max-age=31536000, immutable"
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(self), microphone=(self), display-capture=(self)"
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 50mb
+			roll_keep 3
+		}
+	}
+}

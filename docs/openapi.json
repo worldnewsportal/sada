@@ -1,0 +1,3824 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Sada Messenger API",
+    "version": "1.0.0",
+    "description": "Versioned REST API (spec §5). Realtime event protocol documented in docs/api.md."
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sada_session"
+      },
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/auth/request-otp": {
+      "post": {
+        "summary": "POST auth/request-otp",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/verify-otp": {
+      "post": {
+        "summary": "POST auth/verify-otp",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/twofa": {
+      "post": {
+        "summary": "POST auth/twofa",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "summary": "POST auth/refresh",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "summary": "POST auth/logout",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout-all": {
+      "post": {
+        "summary": "POST auth/logout-all",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/socket-token": {
+      "get": {
+        "summary": "GET auth/socket-token",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/2fa/setup": {
+      "post": {
+        "summary": "POST auth/2fa/setup",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/2fa/enable": {
+      "post": {
+        "summary": "POST auth/2fa/enable",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/2fa/disable": {
+      "post": {
+        "summary": "POST auth/2fa/disable",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "summary": "GET users/me",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "patch": {
+        "summary": "PATCH users/me",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/delete": {
+      "post": {
+        "summary": "POST users/me/delete",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/export": {
+      "get": {
+        "summary": "GET users/me/export",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/settings": {
+      "get": {
+        "summary": "GET users/settings",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "patch": {
+        "summary": "PATCH users/settings",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/privacy": {
+      "get": {
+        "summary": "GET users/privacy",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "patch": {
+        "summary": "PATCH users/privacy",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/search": {
+      "get": {
+        "summary": "GET users/search",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/contacts/sync": {
+      "post": {
+        "summary": "POST users/contacts/sync",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/contacts": {
+      "get": {
+        "summary": "GET users/contacts",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}/block": {
+      "post": {
+        "summary": "POST users/:id/block",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}/unblock": {
+      "post": {
+        "summary": "POST users/:id/unblock",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/blocked": {
+      "get": {
+        "summary": "GET users/blocked",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "summary": "GET users/:id",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats": {
+      "get": {
+        "summary": "GET chats",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/private": {
+      "post": {
+        "summary": "POST chats/private",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/group": {
+      "post": {
+        "summary": "POST chats/group",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/channel": {
+      "post": {
+        "summary": "POST chats/channel",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/saved": {
+      "post": {
+        "summary": "POST chats/saved",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}": {
+      "get": {
+        "summary": "GET chats/:id",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "patch": {
+        "summary": "PATCH chats/:id",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "delete": {
+        "summary": "DELETE chats/:id",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/members": {
+      "post": {
+        "summary": "POST chats/:id/members",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "get": {
+        "summary": "GET chats/:id/members",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/members/{userId}": {
+      "delete": {
+        "summary": "DELETE chats/:id/members/:userId",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/members/{userId}/role": {
+      "post": {
+        "summary": "POST chats/:id/members/:userId/role",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/members/{userId}/restrict": {
+      "post": {
+        "summary": "POST chats/:id/members/:userId/restrict",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/leave": {
+      "post": {
+        "summary": "POST chats/:id/leave",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/flags": {
+      "post": {
+        "summary": "POST chats/:id/flags",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/read": {
+      "post": {
+        "summary": "POST chats/:id/read",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/draft": {
+      "get": {
+        "summary": "GET chats/:id/draft",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "post": {
+        "summary": "POST chats/:id/draft",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/invites": {
+      "post": {
+        "summary": "POST chats/:id/invites",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "get": {
+        "summary": "GET chats/:id/invites",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/invites/{inviteId}/revoke": {
+      "post": {
+        "summary": "POST invites/:inviteId/revoke",
+        "tags": [
+          "invites"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "inviteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/invites/{code}": {
+      "get": {
+        "summary": "GET invites/:code",
+        "tags": [
+          "invites"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/invites/{code}/join": {
+      "post": {
+        "summary": "POST invites/:code/join",
+        "tags": [
+          "invites"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/join-requests": {
+      "get": {
+        "summary": "GET chats/:id/join-requests",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/join-requests/{requestId}": {
+      "post": {
+        "summary": "POST join-requests/:requestId",
+        "tags": [
+          "join-requests"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/public": {
+      "get": {
+        "summary": "GET chats/public",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/public/{username}/join": {
+      "post": {
+        "summary": "POST chats/public/:username/join",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/folders": {
+      "get": {
+        "summary": "GET folders",
+        "tags": [
+          "folders"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "post": {
+        "summary": "POST folders",
+        "tags": [
+          "folders"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/folders/{id}": {
+      "patch": {
+        "summary": "PATCH folders/:id",
+        "tags": [
+          "folders"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "delete": {
+        "summary": "DELETE folders/:id",
+        "tags": [
+          "folders"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/messages": {
+      "get": {
+        "summary": "GET chats/:id/messages",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "post": {
+        "summary": "POST chats/:id/messages",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/messages/{id}": {
+      "get": {
+        "summary": "GET messages/:id",
+        "tags": [
+          "messages"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "patch": {
+        "summary": "PATCH messages/:id",
+        "tags": [
+          "messages"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "delete": {
+        "summary": "DELETE messages/:id",
+        "tags": [
+          "messages"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/messages/{id}/reactions": {
+      "post": {
+        "summary": "POST messages/:id/reactions",
+        "tags": [
+          "messages"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/messages/{id}/pin": {
+      "post": {
+        "summary": "POST messages/:id/pin",
+        "tags": [
+          "messages"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/chats/{id}/pinned": {
+      "get": {
+        "summary": "GET chats/:id/pinned",
+        "tags": [
+          "chats"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/messages/forward": {
+      "post": {
+        "summary": "POST messages/forward",
+        "tags": [
+          "messages"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/messages/{id}/comments": {
+      "get": {
+        "summary": "GET messages/:id/comments",
+        "tags": [
+          "messages"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/search/messages": {
+      "get": {
+        "summary": "GET search/messages",
+        "tags": [
+          "search"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/search/global": {
+      "get": {
+        "summary": "GET search/global",
+        "tags": [
+          "search"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/media/upload-session": {
+      "post": {
+        "summary": "POST media/upload-session",
+        "tags": [
+          "media"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/media/upload/{id}": {
+      "put": {
+        "summary": "PUT media/upload/:id",
+        "tags": [
+          "media"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/media/upload/{id}/abort": {
+      "post": {
+        "summary": "POST media/upload/:id/abort",
+        "tags": [
+          "media"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/media/upload/{id}/complete": {
+      "post": {
+        "summary": "POST media/upload/:id/complete",
+        "tags": [
+          "media"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/media/file": {
+      "get": {
+        "summary": "GET media/file",
+        "tags": [
+          "media"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/media/signed": {
+      "get": {
+        "summary": "GET media/signed",
+        "tags": [
+          "media"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/media/stats": {
+      "get": {
+        "summary": "GET media/stats",
+        "tags": [
+          "media"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/sync": {
+      "get": {
+        "summary": "GET sync",
+        "tags": [
+          "sync"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/sync/cursor": {
+      "get": {
+        "summary": "GET sync/cursor",
+        "tags": [
+          "sync"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "post": {
+        "summary": "POST sync/cursor",
+        "tags": [
+          "sync"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "summary": "GET notifications",
+        "tags": [
+          "notifications"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read": {
+      "post": {
+        "summary": "POST notifications/read",
+        "tags": [
+          "notifications"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/prefs": {
+      "get": {
+        "summary": "GET notifications/prefs",
+        "tags": [
+          "notifications"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      },
+      "patch": {
+        "summary": "PATCH notifications/prefs",
+        "tags": [
+          "notifications"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/push/subscribe": {
+      "post": {
+        "summary": "POST notifications/push/subscribe",
+        "tags": [
+          "notifications"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/push/unsubscribe": {
+      "post": {
+        "summary": "POST notifications/push/unsubscribe",
+        "tags": [
+          "notifications"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/fcm/register": {
+      "post": {
+        "summary": "POST notifications/fcm/register",
+        "tags": [
+          "notifications"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/vapid-key": {
+      "get": {
+        "summary": "GET notifications/vapid-key",
+        "tags": [
+          "notifications"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions": {
+      "get": {
+        "summary": "GET sessions",
+        "tags": [
+          "sessions"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/revoke": {
+      "post": {
+        "summary": "POST sessions/:id/revoke",
+        "tags": [
+          "sessions"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/revoke-all": {
+      "post": {
+        "summary": "POST sessions/revoke-all",
+        "tags": [
+          "sessions"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/reports": {
+      "post": {
+        "summary": "POST reports",
+        "tags": [
+          "reports"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/login": {
+      "post": {
+        "summary": "POST admin/login",
+        "tags": [
+          "admin"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/me": {
+      "get": {
+        "summary": "GET admin/me",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stats": {
+      "get": {
+        "summary": "GET admin/stats",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "summary": "GET admin/users",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}/ban": {
+      "post": {
+        "summary": "POST admin/users/:id/ban",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reports": {
+      "get": {
+        "summary": "GET admin/reports",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reports/{id}/resolve": {
+      "post": {
+        "summary": "POST admin/reports/:id/resolve",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/chats": {
+      "get": {
+        "summary": "GET admin/chats",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/chats/{id}/delete": {
+      "post": {
+        "summary": "POST admin/chats/:id/delete",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/audit-logs": {
+      "get": {
+        "summary": "GET admin/audit-logs",
+        "tags": [
+          "admin"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "summary": "GET meta",
+        "tags": [
+          "meta"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "summary": "GET health",
+        "tags": [
+          "health"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok — {ok:true,data}"
+          },
+          "400": {
+            "description": "validation error"
+          },
+          "401": {
+            "description": "unauthenticated"
+          },
+          "403": {
+            "description": "forbidden / permission denied"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "429": {
+            "description": "rate limited (retryAfterS in details)"
+          }
+        }
+      }
+    }
+  }
+}

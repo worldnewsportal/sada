@@ -1,0 +1,12 @@
+# syntax=docker/dockerfile:1
+# ---- Sada Realtime (socket.io gateway) ----
+FROM oven/bun:1
+WORKDIR /srv
+COPY mini-services/realtime/package.json ./
+COPY src ./src
+COPY mini-services/realtime/index.ts ./index.ts
+COPY prisma ./prisma
+RUN bun install socket.io @prisma/client && bunx prisma generate
+EXPOSE 3003
+HEALTHCHECK --interval=30s --timeout=5s CMD curl -sf http://localhost:3003/internal/health || exit 1
+CMD ["bun", "index.ts"]

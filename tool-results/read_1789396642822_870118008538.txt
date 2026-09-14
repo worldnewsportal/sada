@@ -1,0 +1,1797 @@
+     1→You are a senior mobile architect, backend engineer, DevOps engineer, security engineer, UI/UX designer, and distributed-systems engineer.
+     2→
+     3→Your task is to build a production-grade mobile messaging application inspired by Telegram, with a modern architecture, scalable backend, CDN-based media delivery, real-time messaging, file sharing, groups, channels, calls-ready architecture, push notifications, authentication, search, caching, and strong security.
+     4→
+     5→IMPORTANT:
+     6→
+     7→- Do NOT create a fake demo.
+     8→- Do NOT use mock data for core functionality.
+     9→- Do NOT leave major features as TODOs.
+    10→- Do NOT build only the UI.
+    11→- Every major screen must connect to a real backend/API.
+    12→- The application must be structured so it can realistically scale from a small number of users to millions.
+    13→- Make sensible engineering decisions instead of asking unnecessary questions.
+    14→- If a requirement is ambiguous, choose the most production-appropriate solution and document the decision.
+    15→- Prioritize reliability, security, performance, maintainability, and low infrastructure cost.
+    16→- Never claim something works unless the implementation actually exists.
+    17→
+    18→==================================================
+    19→
+    20→1. PRODUCT
+    21→   ==================================================
+    22→
+    23→Build a cross-platform mobile messaging application with functionality comparable to a modern Telegram-style messenger.
+    24→
+    25→The app should support:
+    26→
+    27→1. User registration and login
+    28→2. Phone-number authentication
+    29→3. Optional email authentication
+    30→4. Username system
+    31→5. User profiles
+    32→6. Profile photos
+    33→7. One-to-one private chats
+    34→8. Group chats
+    35→9. Large groups architecture
+    36→10. Channels
+    37→11. Admin/moderator permissions
+    38→12. Message replies
+    39→13. Message forwarding
+    40→14. Message editing
+    41→15. Message deletion
+    42→16. Message reactions
+    43→17. Message pinning
+    44→18. Message search
+    45→19. Chat search
+    46→20. Global user/channel search
+    47→21. Typing indicators
+    48→22. Online/offline presence
+    49→23. Last-seen status
+    50→24. Read receipts
+    51→25. Delivery status
+    52→26. Message timestamps
+    53→27. Message pagination
+    54→28. Infinite scrolling
+    55→29. Attachments
+    56→30. Images
+    57→31. Videos
+    58→32. Audio
+    59→33. Voice messages
+    60→34. Documents
+    61→35. Files
+    62→36. Stickers
+    63→37. GIF support
+    64→38. Link previews
+    65→39. Media galleries
+    66→40. Download management
+    67→41. Upload progress
+    68→42. Download progress
+    69→43. Background uploads
+    70→44. Background downloads where supported
+    71→45. Push notifications
+    72→46. Notification preferences
+    73→47. Muting chats
+    74→48. Blocking users
+    75→49. Reporting users/messages
+    76→50. Contact synchronization architecture
+    77→51. Multi-device sessions
+    78→52. Device/session management
+    79→53. Logout from individual devices
+    80→54. Logout from all devices
+    81→55. Two-factor authentication architecture
+    82→56. Account deletion
+    83→57. Privacy settings
+    84→58. Username privacy
+    85→59. Phone-number privacy
+    86→60. Last-seen privacy
+    87→61. Profile-photo privacy
+    88→62. Group invitation permissions
+    89→63. Channel permissions
+    90→64. Admin roles
+    91→65. Moderation tools
+    92→66. Message history
+    93→67. Chat folders/categories
+    94→68. Archived chats
+    95→69. Draft messages
+    96→70. Saved messages
+    97→71. Pinned chats
+    98→72. Unread counters
+    99→73. Mention counters
+   100→74. Message notifications
+   101→75. Deep links
+   102→76. Share links
+   103→77. Invite links
+   104→78. QR-code-based links
+   105→79. Application settings
+   106→80. Theme system
+   107→81. Dark mode
+   108→82. Localization
+   109→83. Accessibility
+   110→
+   111→The architecture must also be prepared for:
+   112→
+   113→- Voice calls
+   114→- Video calls
+   115→- Screen sharing
+   116→- Bots
+   117→- Mini-apps
+   118→- Stories
+   119→- Secret/private encrypted chats
+   120→- Message scheduling
+   121→- Scheduled posts
+   122→- Payments
+   123→- Premium subscriptions
+   124→
+   125→Do not necessarily implement all future features now, but design the architecture so they can be added without rewriting the entire system.
+   126→
+   127→==================================================
+   128→2. MOBILE APPLICATION
+   129→   ==================================================
+   130→
+   131→Build a polished mobile application.
+   132→
+   133→Preferred stack:
+   134→
+   135→- Flutter
+   136→- Dart
+   137→- Clean Architecture
+   138→- Riverpod or another robust state-management solution
+   139→- Dio or equivalent HTTP client
+   140→- WebSocket client
+   141→- SQLite/Drift or equivalent local database
+   142→- Secure storage for credentials/tokens
+   143→- Firebase Cloud Messaging for Android push notifications
+   144→- APNs support for iOS architecture
+   145→- Native platform integration where necessary
+   146→
+   147→If another technology is demonstrably better for this project, explain why before changing the stack.
+   148→
+   149→The application must work well on:
+   150→
+   151→- Low-end Android devices
+   152→- Mid-range Android devices
+   153→- High-end Android devices
+   154→- iOS devices
+   155→
+   156→Do not assume flagship hardware.
+   157→
+   158→Optimize:
+   159→
+   160→- RAM usage
+   161→- battery usage
+   162→- network usage
+   163→- startup time
+   164→- scrolling performance
+   165→- image decoding
+   166→- video playback
+   167→- database queries
+   168→- WebSocket reconnection
+   169→- background operations
+   170→
+   171→==================================================
+   172→3. UI/UX
+   173→   ==================================================
+   174→
+   175→Create a polished modern messenger UI.
+   176→
+   177→Main screens:
+   178→
+   179→1. Splash
+   180→2. Authentication
+   181→3. Phone verification
+   182→4. Profile setup
+   183→5. Main chat list
+   184→6. Private chat
+   185→7. Group chat
+   186→8. Channel
+   187→9. Contacts
+   188→10. Search
+   189→11. Media viewer
+   190→12. File viewer
+   191→13. User profile
+   192→14. Group information
+   193→15. Channel information
+   194→16. Settings
+   195→17. Privacy
+   196→18. Notifications
+   197→19. Devices/sessions
+   198→20. Storage usage
+   199→21. Downloads
+   200→22. Admin panel
+   201→23. Report interface
+   202→24. Blocked users
+   203→25. Archived chats
+   204→26. Saved messages
+   205→
+   206→Chat UI should include:
+   207→
+   208→- message bubbles
+   209→- reply previews
+   210→- reactions
+   211→- edited indicator
+   212→- delivery status
+   213→- read status
+   214→- timestamps
+   215→- date separators
+   216→- unread separators
+   217→- pinned message bar
+   218→- typing indicator
+   219→- voice message player
+   220→- image preview
+   221→- video preview
+   222→- file cards
+   223→- upload progress
+   224→- download progress
+   225→- retry button
+   226→- failed-message state
+   227→- deleted-message state
+   228→- system messages
+   229→
+   230→Do not copy Telegram's copyrighted visual assets or branding.
+   231→
+   232→Create an original visual identity while maintaining a familiar messenger UX.
+   233→
+   234→==================================================
+   235→4. BACKEND
+   236→   ==================================================
+   237→
+   238→Build a real production-oriented backend.
+   239→
+   240→Recommended architecture:
+   241→
+   242→API Gateway
+   243→|
+   244→ ---------------- 
+   245→|                |
+   246→REST/HTTP API     WebSocket Gateway
+   247→|                |
+   248→ -------- ------- 
+   249→|
+   250→Application Services
+   251→|
+   252→ ---------- ---------- 
+   253→|          |          |
+   254→PostgreSQL  Redis     Object Storage
+   255→|
+   256→CDN
+   257→
+   258→Backend responsibilities:
+   259→
+   260→- authentication
+   261→- authorization
+   262→- users
+   263→- profiles
+   264→- chats
+   265→- groups
+   266→- channels
+   267→- messages
+   268→- reactions
+   269→- media metadata
+   270→- notifications
+   271→- sessions
+   272→- permissions
+   273→- moderation
+   274→- search
+   275→- presence
+   276→- synchronization
+   277→
+   278→Use modular services rather than putting the entire application into one enormous file.
+   279→
+   280→==================================================
+   281→5. API
+   282→   ==================================================
+   283→
+   284→Create a versioned API.
+   285→
+   286→Example:
+   287→
+   288→/api/v1/auth/*
+   289→/api/v1/users/*
+   290→/api/v1/chats/*
+   291→/api/v1/messages/*
+   292→/api/v1/groups/*
+   293→/api/v1/channels/*
+   294→/api/v1/media/*
+   295→/api/v1/search/*
+   296→/api/v1/settings/*
+   297→/api/v1/sessions/*
+   298→/api/v1/notifications/*
+   299→
+   300→Implement:
+   301→
+   302→- authentication
+   303→- authorization
+   304→- validation
+   305→- rate limiting
+   306→- pagination
+   307→- consistent error responses
+   308→- request IDs
+   309→- logging
+   310→- API versioning
+   311→
+   312→Use OpenAPI documentation.
+   313→
+   314→Generate strongly typed client models where practical.
+   315→
+   316→==================================================
+   317→6. REAL-TIME SYSTEM
+   318→   ==================================================
+   319→
+   320→Do NOT poll the server continuously for messages.
+   321→
+   322→Use WebSockets for real-time events.
+   323→
+   324→Events should include:
+   325→
+   326→MESSAGE_CREATED
+   327→MESSAGE_UPDATED
+   328→MESSAGE_DELETED
+   329→MESSAGE_READ
+   330→MESSAGE_DELIVERED
+   331→MESSAGE_REACTION_UPDATED
+   332→USER_TYPING
+   333→USER_ONLINE
+   334→USER_OFFLINE
+   335→CHAT_UPDATED
+   336→CHAT_PINNED
+   337→MESSAGE_PINNED
+   338→MEMBER_ADDED
+   339→MEMBER_REMOVED
+   340→ADMIN_CHANGED
+   341→CHANNEL_POSTED
+   342→NOTIFICATION_CREATED
+   343→
+   344→Implement:
+   345→
+   346→- connection authentication
+   347→- heartbeat
+   348→- ping/pong
+   349→- reconnect
+   350→- exponential backoff
+   351→- connection state
+   352→- event ordering
+   353→- duplicate event protection
+   354→- idempotency
+   355→- offline synchronization
+   356→
+   357→If the WebSocket disconnects:
+   358→
+   359→1. preserve local state
+   360→2. reconnect automatically
+   361→3. authenticate again if necessary
+   362→4. determine the last synchronized event/message
+   363→5. request missing events
+   364→6. reconcile local state
+   365→
+   366→Never silently lose messages.
+   367→
+   368→==================================================
+   369→7. MESSAGE ARCHITECTURE
+   370→   ==================================================
+   371→
+   372→Messages must have stable unique IDs.
+   373→
+   374→Support:
+   375→
+   376→- UUID/ULID or equivalent
+   377→- sender ID
+   378→- chat ID
+   379→- creation timestamp
+   380→- edited timestamp
+   381→- deletion state
+   382→- reply-to message
+   383→- forwarded metadata
+   384→- attachment metadata
+   385→- reactions
+   386→- mentions
+   387→- entities
+   388→- delivery state
+   389→
+   390→Design the database and synchronization protocol so that messages can be safely synchronized between multiple devices.
+   391→
+   392→Handle:
+   393→
+   394→- duplicate requests
+   395→- retries
+   396→- network failures
+   397→- simultaneous edits
+   398→- delayed events
+   399→- offline messages
+   400→- reconnects
+   401→
+   402→Use idempotency keys for message creation where appropriate.
+   403→
+   404→==================================================
+   405→8. CDN   MEDIA ARCHITECTURE
+   406→   ==================================================
+   407→
+   408→THIS IS CRITICAL.
+   409→
+   410→Do NOT send large files through the application server.
+   411→
+   412→Use:
+   413→
+   414→Mobile App
+   415→|
+   416→| request upload authorization
+   417→v
+   418→Backend
+   419→|
+   420→| signed upload URL
+   421→v
+   422→Object Storage
+   423→|
+   424→v
+   425→CDN
+   426→|
+   427→v
+   428→Other Users
+   429→
+   430→For uploads:
+   431→
+   432→1. Client asks backend for an upload session.
+   433→2. Backend authenticates user.
+   434→3. Backend validates file metadata.
+   435→4. Backend generates a short-lived signed upload URL.
+   436→5. Client uploads directly to object storage.
+   437→6. Storage confirms upload.
+   438→7. Backend stores media metadata.
+   439→8. Message references the media object.
+   440→9. CDN serves the file.
+   441→
+   442→For downloads:
+   443→
+   444→Mobile App
+   445→|
+   446→v
+   447→CDN
+   448→|
+   449→v
+   450→Object Storage
+   451→
+   452→The API server must NOT proxy large media files.
+   453→
+   454→Support:
+   455→
+   456→- resumable uploads
+   457→- multipart uploads
+   458→- upload cancellation
+   459→- retry
+   460→- checksum validation
+   461→- file size limits
+   462→- MIME validation
+   463→- thumbnail generation
+   464→- image resizing
+   465→- video transcoding
+   466→- audio processing
+   467→- malware scanning architecture
+   468→- CDN caching
+   469→- cache invalidation
+   470→- signed URLs
+   471→- expiring URLs
+   472→
+   473→Media storage structure:
+   474→
+   475→media/
+   476→users/
+   477→chats/
+   478→groups/
+   479→channels/
+   480→avatars/
+   481→thumbnails/
+   482→videos/
+   483→audio/
+   484→documents/
+   485→
+   486→Never expose private object-storage credentials to the mobile client.
+   487→
+   488→==================================================
+   489→9. CDN SECURITY
+   490→   ==================================================
+   491→
+   492→Implement:
+   493→
+   494→- signed URLs
+   495→- short expiration
+   496→- access control
+   497→- private buckets
+   498→- origin protection
+   499→- rate limiting
+   500→- hotlink protection where appropriate
+   501→
+   502→The object storage origin must not be publicly writable.
+   503→
+   504→Users should never receive permanent privileged storage credentials.
+   505→
+   506→==================================================
+   507→10. IMAGE PROCESSING
+   508→    ==================================================
+   509→
+   510→When an image is uploaded:
+   511→
+   512→Original
+   513→|
+   514→ --> thumbnail
+   515→|
+   516→ --> medium resolution
+   517→|
+   518→ --> optimized version
+   519→|
+   520→ --> original/private version
+   521→
+   522→Generate appropriate variants.
+   523→
+   524→Avoid downloading a 20 MB original image when the user only needs a small chat preview.
+   525→
+   526→Use lazy loading.
+   527→
+   528→Use caching.
+   529→
+   530→Use placeholders.
+   531→
+   532→==================================================
+   533→11. VIDEO
+   534→    ==================================================
+   535→
+   536→Support:
+   537→
+   538→- video upload
+   539→- thumbnails
+   540→- metadata
+   541→- duration
+   542→- dimensions
+   543→- optimized playback
+   544→- progressive download
+   545→- transcoding architecture
+   546→
+   547→Prepare the architecture for adaptive streaming such as HLS.
+   548→
+   549→Do not require the entire video to download before playback when practical.
+   550→
+   551→==================================================
+   552→12. DATABASE
+   553→    ==================================================
+   554→
+   555→Use PostgreSQL as the primary relational database.
+   556→
+   557→Create proper schema for:
+   558→
+   559→users
+   560→profiles
+   561→sessions
+   562→devices
+   563→chats
+   564→chat_members
+   565→messages
+   566→message_reactions
+   567→message_reads
+   568→message_deliveries
+   569→attachments
+   570→media_objects
+   571→groups
+   572→group_roles
+   573→channels
+   574→channel_members
+   575→invites
+   576→notifications
+   577→blocked_users
+   578→reports
+   579→settings
+   580→user_privacy
+   581→drafts
+   582→saved_messages
+   583→folders
+   584→pinned_messages
+   585→
+   586→Use:
+   587→
+   588→- foreign keys
+   589→- indexes
+   590→- unique constraints
+   591→- transactions
+   592→- proper isolation where necessary
+   593→
+   594→Pay special attention to indexes for:
+   595→
+   596→- chat message retrieval
+   597→- latest messages
+   598→- unread messages
+   599→- user lookup
+   600→- username lookup
+   601→- channel posts
+   602→- search
+   603→- membership queries
+   604→
+   605→Do not create unnecessary indexes that destroy write performance.
+   606→
+   607→==================================================
+   608→13. MESSAGE PAGINATION
+   609→    ==================================================
+   610→
+   611→Do not use inefficient OFFSET pagination for huge chats.
+   612→
+   613→Prefer cursor-based pagination.
+   614→
+   615→Example:
+   616→
+   617→GET /messages?chat_id=123&before=<message_id>&limit=50
+   618→
+   619→Load:
+   620→
+   621→- latest 50 messages
+   622→- older messages when scrolling upward
+   623→
+   624→The UI must feel instant.
+   625→
+   626→==================================================
+   627→14. LOCAL DATABASE
+   628→    ==================================================
+   629→
+   630→The mobile application must have a local cache/database.
+   631→
+   632→Store:
+   633→
+   634→- chats
+   635→- messages
+   636→- users
+   637→- media metadata
+   638→- drafts
+   639→- read states
+   640→- settings
+   641→
+   642→The app should remain usable when temporarily offline.
+   643→
+   644→Implement:
+   645→
+   646→- optimistic UI
+   647→- local message queue
+   648→- synchronization
+   649→- retry
+   650→- conflict handling
+   651→- cache invalidation
+   652→
+   653→Example:
+   654→
+   655→User sends message
+   656→|
+   657→v
+   658→Local DB
+   659→|
+   660→v
+   661→UI immediately displays message
+   662→|
+   663→v
+   664→Server request
+   665→|
+   666→ --> success
+   667→|
+   668→ --> retry
+   669→|
+   670→ --> failure
+   671→
+   672→Never make the UI wait unnecessarily for a round trip to the server.
+   673→
+   674→==================================================
+   675→15. AUTHENTICATION
+   676→    ==================================================
+   677→
+   678→Implement secure authentication.
+   679→
+   680→Primary method:
+   681→
+   682→Phone number   OTP.
+   683→
+   684→Never store OTP codes in plaintext.
+   685→
+   686→Implement:
+   687→
+   688→- OTP expiration
+   689→- rate limits
+   690→- attempt limits
+   691→- brute-force protection
+   692→- session management
+   693→- refresh tokens
+   694→- access tokens
+   695→- secure token storage
+   696→- device sessions
+   697→
+   698→Never put authentication tokens in insecure local storage.
+   699→
+   700→Use platform secure storage.
+   701→
+   702→Prepare for:
+   703→
+   704→- passkeys
+   705→- 2FA
+   706→- email verification
+   707→
+   708→==================================================
+   709→16. SECURITY
+   710→    ==================================================
+   711→
+   712→Treat security as a first-class requirement.
+   713→
+   714→Implement:
+   715→
+   716→- TLS
+   717→- secure headers
+   718→- input validation
+   719→- output encoding
+   720→- SQL injection protection
+   721→- XSS protection where applicable
+   722→- CSRF protection where applicable
+   723→- rate limiting
+   724→- brute-force protection
+   725→- authorization checks
+   726→- file validation
+   727→- abuse detection
+   728→- audit logging
+   729→
+   730→Never trust client-side permissions.
+   731→
+   732→For every privileged operation, validate authorization on the server.
+   733→
+   734→Example:
+   735→
+   736→The client saying:
+   737→
+   738→"is_admin=true"
+   739→
+   740→must NEVER be trusted.
+   741→
+   742→The backend must determine the actual permission.
+   743→
+   744→==================================================
+   745→17. ENCRYPTION
+   746→    ==================================================
+   747→
+   748→Use encryption in transit and encryption at rest.
+   749→
+   750→Important:
+   751→
+   752→Do NOT falsely advertise ordinary cloud chats as end-to-end encrypted unless the cryptographic protocol is actually implemented and independently auditable.
+   753→
+   754→For normal cloud chats:
+   755→
+   756→- TLS
+   757→- encrypted storage
+   758→- server-side access control
+   759→
+   760→Design a separate future architecture for true end-to-end encrypted "secret chats".
+   761→
+   762→If implementing E2EE later, use established audited cryptographic protocols rather than inventing cryptography.
+   763→
+   764→Never create custom cryptographic algorithms.
+   765→
+   766→==================================================
+   767→18. PUSH NOTIFICATIONS
+   768→    ==================================================
+   769→
+   770→Implement push notifications.
+   771→
+   772→Android:
+   773→
+   774→Firebase Cloud Messaging.
+   775→
+   776→iOS:
+   777→
+   778→APNs architecture.
+   779→
+   780→When a message arrives:
+   781→
+   782→Backend
+   783→|
+   784→ --> WebSocket if user online
+   785→|
+   786→ --> Push notification if appropriate
+   787→
+   788→Respect:
+   789→
+   790→- muted chats
+   791→- notification settings
+   792→- blocked users
+   793→- privacy settings
+   794→
+   795→Do not put sensitive message contents into notifications when privacy settings prohibit it.
+   796→
+   797→==================================================
+   798→19. SEARCH
+   799→    ==================================================
+   800→
+   801→Implement:
+   802→
+   803→- chat search
+   804→- global search
+   805→- username search
+   806→- message search
+   807→- channel search
+   808→
+   809→Start with PostgreSQL full-text search if sufficient.
+   810→
+   811→Design the system so it can later migrate to:
+   812→
+   813→- OpenSearch
+   814→- Elasticsearch
+   815→- another dedicated search engine
+   816→
+   817→Do not add Elasticsearch merely because it sounds scalable.
+   818→
+   819→Use the simplest technology that meets the current requirements.
+   820→
+   821→==================================================
+   822→20. GROUPS
+   823→    ==================================================
+   824→
+   825→Support:
+   826→
+   827→- group creation
+   828→- member invitations
+   829→- admins
+   830→- moderators
+   831→- permissions
+   832→- banning
+   833→- muting
+   834→- message deletion
+   835→- pinned messages
+   836→- group links
+   837→- join requests
+   838→
+   839→Permission levels:
+   840→
+   841→Owner
+   842→Admin
+   843→Moderator
+   844→Member
+   845→
+   846→Permissions should be granular.
+   847→
+   848→Examples:
+   849→
+   850→can_delete_messages
+   851→can_ban_members
+   852→can_invite_members
+   853→can_pin_messages
+   854→can_change_info
+   855→can_manage_topics
+   856→
+   857→==================================================
+   858→21. CHANNELS
+   859→    ==================================================
+   860→
+   861→Support:
+   862→
+   863→- channel creation
+   864→- public/private channels
+   865→- username
+   866→- posts
+   867→- media
+   868→- reactions
+   869→- comments architecture
+   870→- administrators
+   871→- scheduled-post architecture
+   872→- subscriber count
+   873→- invite links
+   874→
+   875→Separate channel membership from normal group membership.
+   876→
+   877→Design for very large subscriber counts.
+   878→
+   879→==================================================
+   880→22. MODERATION
+   881→    ==================================================
+   882→
+   883→Implement:
+   884→
+   885→- block user
+   886→- report user
+   887→- report message
+   888→- report channel
+   889→- report group
+   890→- moderation queue
+   891→- admin actions
+   892→- audit logs
+   893→
+   894→Report categories:
+   895→
+   896→spam
+   897→harassment
+   898→illegal_content
+   899→copyright
+   900→violence
+   901→scam
+   902→other
+   903→
+   904→Do not automatically delete content merely because a user reports it unless a defined moderation rule requires it.
+   905→
+   906→==================================================
+   907→23. RATE LIMITING
+   908→    ==================================================
+   909→
+   910→Implement rate limits for:
+   911→
+   912→- login
+   913→- OTP requests
+   914→- OTP verification
+   915→- message sending
+   916→- file uploads
+   917→- username changes
+   918→- group creation
+   919→- channel creation
+   920→- search
+   921→- API requests
+   922→
+   923→Use Redis where appropriate.
+   924→
+   925→Make limits configurable.
+   926→
+   927→Return proper HTTP status codes.
+   928→
+   929→==================================================
+   930→24. CACHING
+   931→    ==================================================
+   932→
+   933→Use Redis for:
+   934→
+   935→- sessions where appropriate
+   936→- rate limits
+   937→- presence
+   938→- temporary state
+   939→- caching
+   940→- distributed locks where genuinely necessary
+   941→
+   942→Do NOT use Redis as the permanent source of truth for messages.
+   943→
+   944→PostgreSQL remains authoritative for persistent application data.
+   945→
+   946→==================================================
+   947→25. PRESENCE
+   948→    ==================================================
+   949→
+   950→Presence should be lightweight.
+   951→
+   952→Support:
+   953→
+   954→online
+   955→offline
+   956→last seen
+   957→typing
+   958→
+   959→Use Redis/in-memory distributed mechanisms for ephemeral presence.
+   960→
+   961→Do not constantly write presence changes to PostgreSQL.
+   962→
+   963→That would create unnecessary database load.
+   964→
+   965→==================================================
+   966→26. SCALABILITY
+   967→    ==================================================
+   968→
+   969→Design the backend to scale horizontally.
+   970→
+   971→Example:
+   972→
+   973→                Load Balancer
+   974→                     |
+   975→       -------------- -------------- 
+   976→      |              |              |
+   977→   API #1         API #2         API #3
+   978→      |              |              |
+   979→       -------------- -------------- 
+   980→                     |
+   981→                   Redis
+   982→                     |
+   983→                PostgreSQL
+   984→                     |
+   985→              Object Storage
+   986→                     |
+   987→                    CDN
+   988→
+   989→WebSocket gateways must support horizontal scaling.
+   990→
+   991→Use Redis pub/sub or another appropriate message-broadcast mechanism where required.
+   992→
+   993→Avoid single-instance assumptions.
+   994→
+   995→==================================================
+   996→27. OBSERVABILITY
+   997→    ==================================================
+   998→
+   999→Implement:
+  1000→
+  1001→- structured logs
+  1002→- request IDs
+  1003→- metrics
+  1004→- health checks
+  1005→- readiness checks
+  1006→- error tracking architecture
+  1007→- latency monitoring
+  1008→
+  1009→Track:
+  1010→
+  1011→API latency
+  1012→WebSocket connections
+  1013→message throughput
+  1014→failed messages
+  1015→upload failures
+  1016→CDN errors
+  1017→database latency
+  1018→Redis latency
+  1019→push notification failures
+  1020→CPU
+  1021→RAM
+  1022→storage
+  1023→network bandwidth
+  1024→
+  1025→==================================================
+  1026→28. DEVOPS
+  1027→    ==================================================
+  1028→
+  1029→Create Dockerfiles.
+  1030→
+  1031→Create docker-compose for local development.
+  1032→
+  1033→Services should include:
+  1034→
+  1035→backend
+  1036→postgres
+  1037→redis
+  1038→object storage
+  1039→worker
+  1040→optional reverse proxy
+  1041→
+  1042→Use environment variables.
+  1043→
+  1044→Never hardcode:
+  1045→
+  1046→API keys
+  1047→passwords
+  1048→tokens
+  1049→database credentials
+  1050→cloud credentials
+  1051→
+  1052→Provide:
+  1053→
+  1054→.env.example
+  1055→
+  1056→but never commit actual secrets.
+  1057→
+  1058→==================================================
+  1059→29. BACKGROUND WORKERS
+  1060→    ==================================================
+  1061→
+  1062→Create worker architecture for:
+  1063→
+  1064→- image processing
+  1065→- video transcoding
+  1066→- thumbnail generation
+  1067→- notification processing
+  1068→- cleanup
+  1069→- virus scanning
+  1070→- scheduled jobs
+  1071→
+  1072→Do not make the HTTP request wait for expensive media processing.
+  1073→
+  1074→Example:
+  1075→
+  1076→Upload
+  1077→|
+  1078→v
+  1079→Object Storage
+  1080→|
+  1081→v
+  1082→Queue
+  1083→|
+  1084→v
+  1085→Worker
+  1086→|
+  1087→ --> Thumbnail
+  1088→ --> Transcoding
+  1089→ --> Metadata
+  1090→ --> CDN availability
+  1091→
+  1092→==================================================
+  1093→30. ERROR HANDLING
+  1094→    ==================================================
+  1095→
+  1096→Every operation must have robust failure handling.
+  1097→
+  1098→Examples:
+  1099→
+  1100→No internet
+  1101→Server unavailable
+  1102→WebSocket disconnected
+  1103→Upload interrupted
+  1104→CDN unavailable
+  1105→Database timeout
+  1106→Expired token
+  1107→Expired signed URL
+  1108→Push notification failure
+  1109→Insufficient storage
+  1110→Invalid file
+  1111→Permission denied
+  1112→
+  1113→The app should show useful states instead of crashing.
+  1114→
+  1115→==================================================
+  1116→31. PERFORMANCE
+  1117→    ==================================================
+  1118→
+  1119→Optimize:
+  1120→
+  1121→- message list rendering
+  1122→- database reads
+  1123→- database writes
+  1124→- media caching
+  1125→- image decoding
+  1126→- network requests
+  1127→- API payload size
+  1128→- WebSocket traffic
+  1129→- compression
+  1130→- startup time
+  1131→
+  1132→Do not send unnecessary fields.
+  1133→
+  1134→Use pagination.
+  1135→
+  1136→Use caching.
+  1137→
+  1138→Use lazy loading.
+  1139→
+  1140→Avoid rebuilding entire message lists when one message changes.
+  1141→
+  1142→==================================================
+  1143→32. STORAGE MANAGEMENT
+  1144→    ==================================================
+  1145→
+  1146→Create a storage-management screen.
+  1147→
+  1148→Show:
+  1149→
+  1150→Images
+  1151→Videos
+  1152→Files
+  1153→Audio
+  1154→Cache
+  1155→Total usage
+  1156→
+  1157→Allow users to:
+  1158→
+  1159→- clear cache
+  1160→- remove downloaded media
+  1161→- configure automatic media retention
+  1162→- configure maximum cache size
+  1163→
+  1164→Deleting cached media must NOT delete the actual chat message.
+  1165→
+  1166→==================================================
+  1167→33. MULTI-DEVICE
+  1168→    ==================================================
+  1169→
+  1170→A user may log in from multiple devices.
+  1171→
+  1172→Implement:
+  1173→
+  1174→- device registration
+  1175→- device sessions
+  1176→- session revocation
+  1177→- synchronization
+  1178→- per-device push tokens
+  1179→
+  1180→Example:
+  1181→
+  1182→Phone A
+  1183→Phone B
+  1184→Tablet
+  1185→Desktop
+  1186→
+  1187→All devices must eventually converge to the same server state.
+  1188→
+  1189→==================================================
+  1190→34. OFFLINE SUPPORT
+  1191→    ==================================================
+  1192→
+  1193→The app should handle temporary network loss gracefully.
+  1194→
+  1195→When offline:
+  1196→
+  1197→- show cached chats
+  1198→- show cached messages
+  1199→- allow drafting
+  1200→- queue outgoing messages
+  1201→- mark messages as pending
+  1202→- retry automatically
+  1203→
+  1204→When connectivity returns:
+  1205→
+  1206→- synchronize
+  1207→- send queued messages
+  1208→- resolve state
+  1209→- update delivery status
+  1210→
+  1211→==================================================
+  1212→35. FILE UPLOADS
+  1213→    ==================================================
+  1214→
+  1215→For large files:
+  1216→
+  1217→Do NOT upload through the backend.
+  1218→
+  1219→Use direct-to-object-storage upload.
+  1220→
+  1221→Implement resumable/multipart uploads.
+  1222→
+  1223→Track:
+  1224→
+  1225→bytes uploaded
+  1226→total bytes
+  1227→percentage
+  1228→speed
+  1229→estimated remaining time
+  1230→
+  1231→Allow cancellation.
+  1232→
+  1233→If an upload fails, retry without restarting unnecessarily.
+  1234→
+  1235→==================================================
+  1236→36. CDN CACHE STRATEGY
+  1237→    ==================================================
+  1238→
+  1239→Public media can have longer cache lifetimes.
+  1240→
+  1241→Private media should use signed access.
+  1242→
+  1243→For immutable files, use content-addressed or versioned paths where practical.
+  1244→
+  1245→Example:
+  1246→
+  1247→/media/<hash>/original
+  1248→/media/<hash>/thumbnail
+  1249→/media/<hash>/medium
+  1250→
+  1251→This reduces unnecessary CDN invalidation.
+  1252→
+  1253→==================================================
+  1254→37. ADMIN PANEL
+  1255→    ==================================================
+  1256→
+  1257→Create a web-based administration panel.
+  1258→
+  1259→Features:
+  1260→
+  1261→- user search
+  1262→- user details
+  1263→- reports
+  1264→- moderation
+  1265→- bans
+  1266→- channel management
+  1267→- group management
+  1268→- system statistics
+  1269→- storage statistics
+  1270→- bandwidth statistics
+  1271→- audit logs
+  1272→
+  1273→Admin authentication must be separate and more secure.
+  1274→
+  1275→Support:
+  1276→
+  1277→- role-based access
+  1278→- admin audit logs
+  1279→- optional 2FA
+  1280→
+  1281→==================================================
+  1282→38. TESTING
+  1283→    ==================================================
+  1284→
+  1285→Create:
+  1286→
+  1287→Unit tests
+  1288→Integration tests
+  1289→API tests
+  1290→Database tests
+  1291→Authentication tests
+  1292→WebSocket tests
+  1293→Upload tests
+  1294→Permission tests
+  1295→Pagination tests
+  1296→
+  1297→Test scenarios:
+  1298→
+  1299→- two users messaging
+  1300→- offline sending
+  1301→- reconnect
+  1302→- duplicate messages
+  1303→- message ordering
+  1304→- file upload
+  1305→- interrupted upload
+  1306→- expired URL
+  1307→- revoked session
+  1308→- blocked user
+  1309→- unauthorized admin action
+  1310→- group permission changes
+  1311→
+  1312→==================================================
+  1313→39. LOAD TESTING
+  1314→    ==================================================
+  1315→
+  1316→Prepare load tests for:
+  1317→
+  1318→API
+  1319→WebSockets
+  1320→message sending
+  1321→message retrieval
+  1322→uploads
+  1323→authentication
+  1324→search
+  1325→
+  1326→Identify bottlenecks before optimizing.
+  1327→
+  1328→Do not claim "millions of users" without explaining the actual bottlenecks and scaling strategy.
+  1329→
+  1330→==================================================
+  1331→40. DATABASE MIGRATIONS
+  1332→    ==================================================
+  1333→
+  1334→Use proper migrations.
+  1335→
+  1336→Never require users to manually modify production databases.
+  1337→
+  1338→Include:
+  1339→
+  1340→initial schema
+  1341→indexes
+  1342→constraints
+  1343→migration scripts
+  1344→rollback strategy where practical
+  1345→
+  1346→==================================================
+  1347→41. BACKUPS
+  1348→    ==================================================
+  1349→
+  1350→Design backup architecture.
+  1351→
+  1352→PostgreSQL:
+  1353→
+  1354→- automated backups
+  1355→- point-in-time recovery architecture
+  1356→- retention policy
+  1357→
+  1358→Object storage:
+  1359→
+  1360→- versioning where appropriate
+  1361→- lifecycle rules
+  1362→- redundancy
+  1363→
+  1364→Document disaster recovery.
+  1365→
+  1366→==================================================
+  1367→42. SECURITY OF MEDIA
+  1368→    ==================================================
+  1369→
+  1370→Never trust:
+  1371→
+  1372→filename
+  1373→MIME type supplied by client
+  1374→file extension
+  1375→
+  1376→Validate uploaded content server-side/worker-side.
+  1377→
+  1378→Set limits for:
+  1379→
+  1380→maximum file size
+  1381→maximum image dimensions
+  1382→maximum video duration
+  1383→maximum upload rate
+  1384→
+  1385→Prevent:
+  1386→
+  1387→path traversal
+  1388→malicious filenames
+  1389→unexpected executable uploads
+  1390→resource exhaustion
+  1391→
+  1392→==================================================
+  1393→43. API DOCUMENTATION
+  1394→    ==================================================
+  1395→
+  1396→Generate complete API documentation.
+  1397→
+  1398→For every endpoint document:
+  1399→
+  1400→method
+  1401→path
+  1402→authentication
+  1403→request
+  1404→response
+  1405→errors
+  1406→rate limits
+  1407→pagination
+  1408→examples
+  1409→
+  1410→==================================================
+  1411→44. PROJECT STRUCTURE
+  1412→    ==================================================
+  1413→
+  1414→Create a clean monorepo such as:
+  1415→
+  1416→project/
+  1417→apps/
+  1418→mobile/
+  1419→admin/
+  1420→services/
+  1421→api/
+  1422→realtime/
+  1423→worker/
+  1424→packages/
+  1425→shared/
+  1426→api_client/
+  1427→infrastructure/
+  1428→docker/
+  1429→nginx/
+  1430→migrations/
+  1431→docs/
+  1432→scripts/
+  1433→
+  1434→Adapt the exact structure to the selected technology.
+  1435→
+  1436→Do not create unnecessary complexity.
+  1437→
+  1438→==================================================
+  1439→45. CONFIGURATION
+  1440→    ==================================================
+  1441→
+  1442→Create configuration for:
+  1443→
+  1444→development
+  1445→staging
+  1446→production
+  1447→
+  1448→Use environment variables.
+  1449→
+  1450→Example:
+  1451→
+  1452→DATABASE_URL
+  1453→REDIS_URL
+  1454→OBJECT_STORAGE_ENDPOINT
+  1455→OBJECT_STORAGE_BUCKET
+  1456→OBJECT_STORAGE_ACCESS_KEY
+  1457→OBJECT_STORAGE_SECRET_KEY
+  1458→CDN_BASE_URL
+  1459→JWT_SECRET
+  1460→FCM credentials
+  1461→APNS credentials
+  1462→
+  1463→Never expose secrets to the client.
+  1464→
+  1465→==================================================
+  1466→46. LOCAL DEVELOPMENT
+  1467→    ==================================================
+  1468→
+  1469→The entire backend must be runnable locally.
+  1470→
+  1471→Provide:
+  1472→
+  1473→docker compose up
+  1474→
+  1475→or an equivalent simple command.
+  1476→
+  1477→The developer should be able to:
+  1478→
+  1479→1. start infrastructure
+  1480→2. run migrations
+  1481→3. start backend
+  1482→4. start worker
+  1483→5. run mobile application
+  1484→
+  1485→Document every command.
+  1486→
+  1487→==================================================
+  1488→47. CI/CD
+  1489→    ==================================================
+  1490→
+  1491→Create CI/CD pipelines.
+  1492→
+  1493→On every push:
+  1494→
+  1495→- format
+  1496→- lint
+  1497→- test
+  1498→- build
+  1499→- security checks
+  1500→
+  1501→For production:
+  1502→
+  1503→- build container
+  1504→- run tests
+  1505→- deploy
+  1506→- health check
+  1507→- rollback if deployment fails
+  1508→
+  1509→Never deploy automatically to production without an appropriate safety mechanism.
+  1510→
+  1511→==================================================
+  1512→48. MOBILE BUILD
+  1513→    ==================================================
+  1514→
+  1515→Provide:
+  1516→
+  1517→Android debug build
+  1518→Android release configuration
+  1519→iOS configuration
+  1520→application icons
+  1521→splash screen
+  1522→permissions
+  1523→deep links
+  1524→
+  1525→Use secure release configuration.
+  1526→
+  1527→==================================================
+  1528→49. PRIVACY
+  1529→    ==================================================
+  1530→
+  1531→Collect the minimum necessary personal data.
+  1532→
+  1533→Provide:
+  1534→
+  1535→privacy policy architecture
+  1536→account deletion
+  1537→data export architecture
+  1538→session management
+  1539→blocking
+  1540→reporting
+  1541→notification controls
+  1542→
+  1543→Do not store unnecessary sensitive information.
+  1544→
+  1545→==================================================
+  1546→50. IMPORTANT ENGINEERING RULES
+  1547→    ==================================================
+  1548→
+  1549→Rule 1:
+  1550→Do not overengineer prematurely.
+  1551→
+  1552→Rule 2:
+  1553→Do not build fake scalability.
+  1554→
+  1555→Rule 3:
+  1556→Do not use microservices merely because Telegram is large.
+  1557→
+  1558→Rule 4:
+  1559→Start with modular services that can scale independently.
+  1560→
+  1561→Rule 5:
+  1562→PostgreSQL is the source of truth for persistent relational data.
+  1563→
+  1564→Rule 6:
+  1565→Redis is for ephemeral/high-speed state and caching, not permanent message storage.
+  1566→
+  1567→Rule 7:
+  1568→Object storage stores large files.
+  1569→
+  1570→Rule 8:
+  1571→CDN serves media to users.
+  1572→
+  1573→Rule 9:
+  1574→API servers should not proxy large files.
+  1575→
+  1576→Rule 10:
+  1577→WebSockets handle real-time events.
+  1578→
+  1579→Rule 11:
+  1580→Workers handle expensive asynchronous operations.
+  1581→
+  1582→Rule 12:
+  1583→The client must never be trusted for authorization.
+  1584→
+  1585→Rule 13:
+  1586→Never invent cryptography.
+  1587→
+  1588→Rule 14:
+  1589→Never hardcode secrets.
+  1590→
+  1591→Rule 15:
+  1592→Never use mock implementations for features claimed to be production-ready.
+  1593→
+  1594→==================================================
+  1595→51. IMPLEMENTATION ORDER
+  1596→    ==================================================
+  1597→
+  1598→Build in this order:
+  1599→
+  1600→PHASE 1
+  1601→Project structure
+  1602→Mobile shell
+  1603→Backend
+  1604→PostgreSQL
+  1605→Authentication
+  1606→
+  1607→PHASE 2
+  1608→Users
+  1609→Profiles
+  1610→Sessions
+  1611→Private chats
+  1612→
+  1613→PHASE 3
+  1614→WebSockets
+  1615→Real-time messages
+  1616→Read/delivery states
+  1617→Typing/presence
+  1618→
+  1619→PHASE 4
+  1620→Local database
+  1621→Offline mode
+  1622→Synchronization
+  1623→
+  1624→PHASE 5
+  1625→Object storage
+  1626→Signed uploads
+  1627→CDN
+  1628→Media messages
+  1629→
+  1630→PHASE 6
+  1631→Groups
+  1632→Permissions
+  1633→Moderation
+  1634→
+  1635→PHASE 7
+  1636→Channels
+  1637→Search
+  1638→Notifications
+  1639→
+  1640→PHASE 8
+  1641→Admin panel
+  1642→Monitoring
+  1643→Logging
+  1644→Analytics
+  1645→
+  1646→PHASE 9
+  1647→Security hardening
+  1648→Testing
+  1649→Load testing
+  1650→Deployment
+  1651→
+  1652→PHASE 10
+  1653→Optimization
+  1654→Documentation
+  1655→Production readiness
+  1656→
+  1657→==================================================
+  1658→52. DELIVERABLES
+  1659→    ==================================================
+  1660→
+  1661→At the end provide:
+  1662→
+  1663→1. Complete source code
+  1664→2. Mobile application
+  1665→3. Backend
+  1666→4. Realtime server
+  1667→5. Worker system
+  1668→6. Admin panel
+  1669→7. Database schema
+  1670→8. Migrations
+  1671→9. Docker configuration
+  1672→10. CDN/object-storage configuration
+  1673→11. API documentation
+  1674→12. Environment example
+  1675→13. CI/CD
+  1676→14. Tests
+  1677→15. README
+  1678→16. Deployment guide
+  1679→17. Architecture diagram
+  1680→18. Security documentation
+  1681→19. Scaling documentation
+  1682→20. Backup/recovery documentation
+  1683→
+  1684→==================================================
+  1685→53. FINAL QUALITY CHECK
+  1686→    ==================================================
+  1687→
+  1688→Before declaring completion, inspect the entire project.
+  1689→
+  1690→Check:
+  1691→
+  1692→- Does authentication actually work?
+  1693→- Can two real users communicate?
+  1694→- Do messages persist?
+  1695→- Does WebSocket reconnect?
+  1696→- Does offline mode work?
+  1697→- Do uploads use direct object storage?
+  1698→- Does CDN delivery work?
+  1699→- Are signed URLs used?
+  1700→- Are permissions enforced server-side?
+  1701→- Are database indexes present?
+  1702→- Are large chats paginated?
+  1703→- Are push notifications implemented?
+  1704→- Are errors handled?
+  1705→- Are secrets protected?
+  1706→- Can the backend restart without losing persistent data?
+  1707→- Can multiple backend instances run?
+  1708→- Can WebSocket instances scale horizontally?
+  1709→- Can workers run independently?
+  1710→- Are tests present?
+  1711→- Does the mobile app work on low-end devices?
+  1712→- Are there any fake/demo-only features?
+  1713→- Are there TODOs hiding unfinished core functionality?
+  1714→
+  1715→Fix problems before declaring the project complete.
+  1716→
+  1717→==================================================
+  1718→54. ARCHITECTURE DOCUMENTATION
+  1719→    ==================================================
+  1720→
+  1721→Create:
+  1722→
+  1723→docs/architecture.md
+  1724→
+  1725→Explain:
+  1726→
+  1727→Mobile
+  1728→API
+  1729→WebSocket
+  1730→PostgreSQL
+  1731→Redis
+  1732→Object Storage
+  1733→CDN
+  1734→Workers
+  1735→Push Notifications
+  1736→Admin Panel
+  1737→
+  1738→Also document:
+  1739→
+  1740→request flow
+  1741→message flow
+  1742→upload flow
+  1743→download flow
+  1744→authentication flow
+  1745→reconnection flow
+  1746→offline synchronization
+  1747→scaling strategy
+  1748→failure scenarios
+  1749→backup strategy
+  1750→security model
+  1751→
+  1752→==================================================
+  1753→55. COST-AWARE ARCHITECTURE
+  1754→    ==================================================
+  1755→
+  1756→Do not assume unlimited budget.
+  1757→
+  1758→Design infrastructure so that:
+  1759→
+  1760→- CDN reduces origin bandwidth
+  1761→- object storage is used for media
+  1762→- API servers remain stateless where practical
+  1763→- workers scale according to queue depth
+  1764→- PostgreSQL is optimized before adding another database
+  1765→- Redis is sized according to actual usage
+  1766→- media is compressed and transcoded appropriately
+  1767→- logs do not grow without limits
+  1768→
+  1769→Provide a section explaining which components become expensive first as user count increases.
+  1770→
+  1771→==================================================
+  1772→56. OUTPUT FORMAT
+  1773→    ==================================================
+  1774→
+  1775→When starting the project:
+  1776→
+  1777→1. Analyze requirements.
+  1778→2. Propose the final architecture.
+  1779→3. Explain important technology choices briefly.
+  1780→4. Create the project structure.
+  1781→5. Implement Phase 1.
+  1782→6. Run tests.
+  1783→7. Fix errors.
+  1784→8. Continue phase by phase.
+  1785→9. Never stop at a mockup.
+  1786→10. Keep the project buildable after every major phase.
+  1787→
+  1788→When you encounter a technical limitation:
+  1789→
+  1790→- explain it clearly
+  1791→- choose the closest production-grade solution
+  1792→- continue implementation
+  1793→- document the limitation
+  1794→
+  1795→Do not stop simply because a feature is complex.
+  1796→
+  1797→The final goal is a real, scalable, secure, CDN-backed mobile messaging platform — not a visual clone or prototype.

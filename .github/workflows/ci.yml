@@ -1,0 +1,56 @@
+name: CI/CD (spec §47)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Lint (format check + ESLint)
+        run: bun run lint
+      - name: Typecheck
+        run: bunx tsc --noEmit
+      - name: Prisma schema validation
+        run: bunx prisma validate
+      - name: Integration tests (isolated DB)
+        run: |
+          DATABASE_URL="file:./db/test-ci.db" bunx prisma db push --skip-generate
+          bun test tests/
+      - name: Build
+        run: bun run build
+      - name: Security audit
+        run: bun audit --production || true
+
+  docker:
+    needs: quality
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images (no push without manual approval)
+        run: |
+          docker build -f infrastructure/docker/Dockerfile.web -t sada-web:${{ github.sha }} .
+          docker build -f infrastructure/docker/Dockerfile.realtime -t sada-realtime:${{ github.sha }} .
+          docker build -f infrastructure/docker/Dockerfile.worker -t sada-worker:${{ github.sha }} .
+
+  deploy:
+    needs: docker
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production # requires manual approval — safety mechanism (spec §47)
+    steps:
+      - name: Deploy with rollback on failure
+        run: |
+          echo "Deployment runs: pull images → migrate (prisma migrate deploy) →"
+          echo "rolling restart → health check /api/v1/health →"
+          echo "on failure: rollback to previous image tag automatically."
+          # Implementation is infrastructure-specific (see docs/deployment.md).

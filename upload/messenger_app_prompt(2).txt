@@ -1,0 +1,1797 @@
+You are a senior mobile architect, backend engineer, DevOps engineer, security engineer, UI/UX designer, and distributed-systems engineer.
+
+Your task is to build a production-grade mobile messaging application inspired by Telegram, with a modern architecture, scalable backend, CDN-based media delivery, real-time messaging, file sharing, groups, channels, calls-ready architecture, push notifications, authentication, search, caching, and strong security.
+
+IMPORTANT:
+
+- Do NOT create a fake demo.
+- Do NOT use mock data for core functionality.
+- Do NOT leave major features as TODOs.
+- Do NOT build only the UI.
+- Every major screen must connect to a real backend/API.
+- The application must be structured so it can realistically scale from a small number of users to millions.
+- Make sensible engineering decisions instead of asking unnecessary questions.
+- If a requirement is ambiguous, choose the most production-appropriate solution and document the decision.
+- Prioritize reliability, security, performance, maintainability, and low infrastructure cost.
+- Never claim something works unless the implementation actually exists.
+
+==================================================
+
+1. PRODUCT
+   ==================================================
+
+Build a cross-platform mobile messaging application with functionality comparable to a modern Telegram-style messenger.
+
+The app should support:
+
+1. User registration and login
+2. Phone-number authentication
+3. Optional email authentication
+4. Username system
+5. User profiles
+6. Profile photos
+7. One-to-one private chats
+8. Group chats
+9. Large groups architecture
+10. Channels
+11. Admin/moderator permissions
+12. Message replies
+13. Message forwarding
+14. Message editing
+15. Message deletion
+16. Message reactions
+17. Message pinning
+18. Message search
+19. Chat search
+20. Global user/channel search
+21. Typing indicators
+22. Online/offline presence
+23. Last-seen status
+24. Read receipts
+25. Delivery status
+26. Message timestamps
+27. Message pagination
+28. Infinite scrolling
+29. Attachments
+30. Images
+31. Videos
+32. Audio
+33. Voice messages
+34. Documents
+35. Files
+36. Stickers
+37. GIF support
+38. Link previews
+39. Media galleries
+40. Download management
+41. Upload progress
+42. Download progress
+43. Background uploads
+44. Background downloads where supported
+45. Push notifications
+46. Notification preferences
+47. Muting chats
+48. Blocking users
+49. Reporting users/messages
+50. Contact synchronization architecture
+51. Multi-device sessions
+52. Device/session management
+53. Logout from individual devices
+54. Logout from all devices
+55. Two-factor authentication architecture
+56. Account deletion
+57. Privacy settings
+58. Username privacy
+59. Phone-number privacy
+60. Last-seen privacy
+61. Profile-photo privacy
+62. Group invitation permissions
+63. Channel permissions
+64. Admin roles
+65. Moderation tools
+66. Message history
+67. Chat folders/categories
+68. Archived chats
+69. Draft messages
+70. Saved messages
+71. Pinned chats
+72. Unread counters
+73. Mention counters
+74. Message notifications
+75. Deep links
+76. Share links
+77. Invite links
+78. QR-code-based links
+79. Application settings
+80. Theme system
+81. Dark mode
+82. Localization
+83. Accessibility
+
+The architecture must also be prepared for:
+
+- Voice calls
+- Video calls
+- Screen sharing
+- Bots
+- Mini-apps
+- Stories
+- Secret/private encrypted chats
+- Message scheduling
+- Scheduled posts
+- Payments
+- Premium subscriptions
+
+Do not necessarily implement all future features now, but design the architecture so they can be added without rewriting the entire system.
+
+==================================================
+2. MOBILE APPLICATION
+   ==================================================
+
+Build a polished mobile application.
+
+Preferred stack:
+
+- Flutter
+- Dart
+- Clean Architecture
+- Riverpod or another robust state-management solution
+- Dio or equivalent HTTP client
+- WebSocket client
+- SQLite/Drift or equivalent local database
+- Secure storage for credentials/tokens
+- Firebase Cloud Messaging for Android push notifications
+- APNs support for iOS architecture
+- Native platform integration where necessary
+
+If another technology is demonstrably better for this project, explain why before changing the stack.
+
+The application must work well on:
+
+- Low-end Android devices
+- Mid-range Android devices
+- High-end Android devices
+- iOS devices
+
+Do not assume flagship hardware.
+
+Optimize:
+
+- RAM usage
+- battery usage
+- network usage
+- startup time
+- scrolling performance
+- image decoding
+- video playback
+- database queries
+- WebSocket reconnection
+- background operations
+
+==================================================
+3. UI/UX
+   ==================================================
+
+Create a polished modern messenger UI.
+
+Main screens:
+
+1. Splash
+2. Authentication
+3. Phone verification
+4. Profile setup
+5. Main chat list
+6. Private chat
+7. Group chat
+8. Channel
+9. Contacts
+10. Search
+11. Media viewer
+12. File viewer
+13. User profile
+14. Group information
+15. Channel information
+16. Settings
+17. Privacy
+18. Notifications
+19. Devices/sessions
+20. Storage usage
+21. Downloads
+22. Admin panel
+23. Report interface
+24. Blocked users
+25. Archived chats
+26. Saved messages
+
+Chat UI should include:
+
+- message bubbles
+- reply previews
+- reactions
+- edited indicator
+- delivery status
+- read status
+- timestamps
+- date separators
+- unread separators
+- pinned message bar
+- typing indicator
+- voice message player
+- image preview
+- video preview
+- file cards
+- upload progress
+- download progress
+- retry button
+- failed-message state
+- deleted-message state
+- system messages
+
+Do not copy Telegram's copyrighted visual assets or branding.
+
+Create an original visual identity while maintaining a familiar messenger UX.
+
+==================================================
+4. BACKEND
+   ==================================================
+
+Build a real production-oriented backend.
+
+Recommended architecture:
+
+API Gateway
+|
+ ---------------- 
+|                |
+REST/HTTP API     WebSocket Gateway
+|                |
+ -------- ------- 
+|
+Application Services
+|
+ ---------- ---------- 
+|          |          |
+PostgreSQL  Redis     Object Storage
+|
+CDN
+
+Backend responsibilities:
+
+- authentication
+- authorization
+- users
+- profiles
+- chats
+- groups
+- channels
+- messages
+- reactions
+- media metadata
+- notifications
+- sessions
+- permissions
+- moderation
+- search
+- presence
+- synchronization
+
+Use modular services rather than putting the entire application into one enormous file.
+
+==================================================
+5. API
+   ==================================================
+
+Create a versioned API.
+
+Example:
+
+/api/v1/auth/*
+/api/v1/users/*
+/api/v1/chats/*
+/api/v1/messages/*
+/api/v1/groups/*
+/api/v1/channels/*
+/api/v1/media/*
+/api/v1/search/*
+/api/v1/settings/*
+/api/v1/sessions/*
+/api/v1/notifications/*
+
+Implement:
+
+- authentication
+- authorization
+- validation
+- rate limiting
+- pagination
+- consistent error responses
+- request IDs
+- logging
+- API versioning
+
+Use OpenAPI documentation.
+
+Generate strongly typed client models where practical.
+
+==================================================
+6. REAL-TIME SYSTEM
+   ==================================================
+
+Do NOT poll the server continuously for messages.
+
+Use WebSockets for real-time events.
+
+Events should include:
+
+MESSAGE_CREATED
+MESSAGE_UPDATED
+MESSAGE_DELETED
+MESSAGE_READ
+MESSAGE_DELIVERED
+MESSAGE_REACTION_UPDATED
+USER_TYPING
+USER_ONLINE
+USER_OFFLINE
+CHAT_UPDATED
+CHAT_PINNED
+MESSAGE_PINNED
+MEMBER_ADDED
+MEMBER_REMOVED
+ADMIN_CHANGED
+CHANNEL_POSTED
+NOTIFICATION_CREATED
+
+Implement:
+
+- connection authentication
+- heartbeat
+- ping/pong
+- reconnect
+- exponential backoff
+- connection state
+- event ordering
+- duplicate event protection
+- idempotency
+- offline synchronization
+
+If the WebSocket disconnects:
+
+1. preserve local state
+2. reconnect automatically
+3. authenticate again if necessary
+4. determine the last synchronized event/message
+5. request missing events
+6. reconcile local state
+
+Never silently lose messages.
+
+==================================================
+7. MESSAGE ARCHITECTURE
+   ==================================================
+
+Messages must have stable unique IDs.
+
+Support:
+
+- UUID/ULID or equivalent
+- sender ID
+- chat ID
+- creation timestamp
+- edited timestamp
+- deletion state
+- reply-to message
+- forwarded metadata
+- attachment metadata
+- reactions
+- mentions
+- entities
+- delivery state
+
+Design the database and synchronization protocol so that messages can be safely synchronized between multiple devices.
+
+Handle:
+
+- duplicate requests
+- retries
+- network failures
+- simultaneous edits
+- delayed events
+- offline messages
+- reconnects
+
+Use idempotency keys for message creation where appropriate.
+
+==================================================
+8. CDN   MEDIA ARCHITECTURE
+   ==================================================
+
+THIS IS CRITICAL.
+
+Do NOT send large files through the application server.
+
+Use:
+
+Mobile App
+|
+| request upload authorization
+v
+Backend
+|
+| signed upload URL
+v
+Object Storage
+|
+v
+CDN
+|
+v
+Other Users
+
+For uploads:
+
+1. Client asks backend for an upload session.
+2. Backend authenticates user.
+3. Backend validates file metadata.
+4. Backend generates a short-lived signed upload URL.
+5. Client uploads directly to object storage.
+6. Storage confirms upload.
+7. Backend stores media metadata.
+8. Message references the media object.
+9. CDN serves the file.
+
+For downloads:
+
+Mobile App
+|
+v
+CDN
+|
+v
+Object Storage
+
+The API server must NOT proxy large media files.
+
+Support:
+
+- resumable uploads
+- multipart uploads
+- upload cancellation
+- retry
+- checksum validation
+- file size limits
+- MIME validation
+- thumbnail generation
+- image resizing
+- video transcoding
+- audio processing
+- malware scanning architecture
+- CDN caching
+- cache invalidation
+- signed URLs
+- expiring URLs
+
+Media storage structure:
+
+media/
+users/
+chats/
+groups/
+channels/
+avatars/
+thumbnails/
+videos/
+audio/
+documents/
+
+Never expose private object-storage credentials to the mobile client.
+
+==================================================
+9. CDN SECURITY
+   ==================================================
+
+Implement:
+
+- signed URLs
+- short expiration
+- access control
+- private buckets
+- origin protection
+- rate limiting
+- hotlink protection where appropriate
+
+The object storage origin must not be publicly writable.
+
+Users should never receive permanent privileged storage credentials.
+
+==================================================
+10. IMAGE PROCESSING
+    ==================================================
+
+When an image is uploaded:
+
+Original
+|
+ --> thumbnail
+|
+ --> medium resolution
+|
+ --> optimized version
+|
+ --> original/private version
+
+Generate appropriate variants.
+
+Avoid downloading a 20 MB original image when the user only needs a small chat preview.
+
+Use lazy loading.
+
+Use caching.
+
+Use placeholders.
+
+==================================================
+11. VIDEO
+    ==================================================
+
+Support:
+
+- video upload
+- thumbnails
+- metadata
+- duration
+- dimensions
+- optimized playback
+- progressive download
+- transcoding architecture
+
+Prepare the architecture for adaptive streaming such as HLS.
+
+Do not require the entire video to download before playback when practical.
+
+==================================================
+12. DATABASE
+    ==================================================
+
+Use PostgreSQL as the primary relational database.
+
+Create proper schema for:
+
+users
+profiles
+sessions
+devices
+chats
+chat_members
+messages
+message_reactions
+message_reads
+message_deliveries
+attachments
+media_objects
+groups
+group_roles
+channels
+channel_members
+invites
+notifications
+blocked_users
+reports
+settings
+user_privacy
+drafts
+saved_messages
+folders
+pinned_messages
+
+Use:
+
+- foreign keys
+- indexes
+- unique constraints
+- transactions
+- proper isolation where necessary
+
+Pay special attention to indexes for:
+
+- chat message retrieval
+- latest messages
+- unread messages
+- user lookup
+- username lookup
+- channel posts
+- search
+- membership queries
+
+Do not create unnecessary indexes that destroy write performance.
+
+==================================================
+13. MESSAGE PAGINATION
+    ==================================================
+
+Do not use inefficient OFFSET pagination for huge chats.
+
+Prefer cursor-based pagination.
+
+Example:
+
+GET /messages?chat_id=123&before=<message_id>&limit=50
+
+Load:
+
+- latest 50 messages
+- older messages when scrolling upward
+
+The UI must feel instant.
+
+==================================================
+14. LOCAL DATABASE
+    ==================================================
+
+The mobile application must have a local cache/database.
+
+Store:
+
+- chats
+- messages
+- users
+- media metadata
+- drafts
+- read states
+- settings
+
+The app should remain usable when temporarily offline.
+
+Implement:
+
+- optimistic UI
+- local message queue
+- synchronization
+- retry
+- conflict handling
+- cache invalidation
+
+Example:
+
+User sends message
+|
+v
+Local DB
+|
+v
+UI immediately displays message
+|
+v
+Server request
+|
+ --> success
+|
+ --> retry
+|
+ --> failure
+
+Never make the UI wait unnecessarily for a round trip to the server.
+
+==================================================
+15. AUTHENTICATION
+    ==================================================
+
+Implement secure authentication.
+
+Primary method:
+
+Phone number   OTP.
+
+Never store OTP codes in plaintext.
+
+Implement:
+
+- OTP expiration
+- rate limits
+- attempt limits
+- brute-force protection
+- session management
+- refresh tokens
+- access tokens
+- secure token storage
+- device sessions
+
+Never put authentication tokens in insecure local storage.
+
+Use platform secure storage.
+
+Prepare for:
+
+- passkeys
+- 2FA
+- email verification
+
+==================================================
+16. SECURITY
+    ==================================================
+
+Treat security as a first-class requirement.
+
+Implement:
+
+- TLS
+- secure headers
+- input validation
+- output encoding
+- SQL injection protection
+- XSS protection where applicable
+- CSRF protection where applicable
+- rate limiting
+- brute-force protection
+- authorization checks
+- file validation
+- abuse detection
+- audit logging
+
+Never trust client-side permissions.
+
+For every privileged operation, validate authorization on the server.
+
+Example:
+
+The client saying:
+
+"is_admin=true"
+
+must NEVER be trusted.
+
+The backend must determine the actual permission.
+
+==================================================
+17. ENCRYPTION
+    ==================================================
+
+Use encryption in transit and encryption at rest.
+
+Important:
+
+Do NOT falsely advertise ordinary cloud chats as end-to-end encrypted unless the cryptographic protocol is actually implemented and independently auditable.
+
+For normal cloud chats:
+
+- TLS
+- encrypted storage
+- server-side access control
+
+Design a separate future architecture for true end-to-end encrypted "secret chats".
+
+If implementing E2EE later, use established audited cryptographic protocols rather than inventing cryptography.
+
+Never create custom cryptographic algorithms.
+
+==================================================
+18. PUSH NOTIFICATIONS
+    ==================================================
+
+Implement push notifications.
+
+Android:
+
+Firebase Cloud Messaging.
+
+iOS:
+
+APNs architecture.
+
+When a message arrives:
+
+Backend
+|
+ --> WebSocket if user online
+|
+ --> Push notification if appropriate
+
+Respect:
+
+- muted chats
+- notification settings
+- blocked users
+- privacy settings
+
+Do not put sensitive message contents into notifications when privacy settings prohibit it.
+
+==================================================
+19. SEARCH
+    ==================================================
+
+Implement:
+
+- chat search
+- global search
+- username search
+- message search
+- channel search
+
+Start with PostgreSQL full-text search if sufficient.
+
+Design the system so it can later migrate to:
+
+- OpenSearch
+- Elasticsearch
+- another dedicated search engine
+
+Do not add Elasticsearch merely because it sounds scalable.
+
+Use the simplest technology that meets the current requirements.
+
+==================================================
+20. GROUPS
+    ==================================================
+
+Support:
+
+- group creation
+- member invitations
+- admins
+- moderators
+- permissions
+- banning
+- muting
+- message deletion
+- pinned messages
+- group links
+- join requests
+
+Permission levels:
+
+Owner
+Admin
+Moderator
+Member
+
+Permissions should be granular.
+
+Examples:
+
+can_delete_messages
+can_ban_members
+can_invite_members
+can_pin_messages
+can_change_info
+can_manage_topics
+
+==================================================
+21. CHANNELS
+    ==================================================
+
+Support:
+
+- channel creation
+- public/private channels
+- username
+- posts
+- media
+- reactions
+- comments architecture
+- administrators
+- scheduled-post architecture
+- subscriber count
+- invite links
+
+Separate channel membership from normal group membership.
+
+Design for very large subscriber counts.
+
+==================================================
+22. MODERATION
+    ==================================================
+
+Implement:
+
+- block user
+- report user
+- report message
+- report channel
+- report group
+- moderation queue
+- admin actions
+- audit logs
+
+Report categories:
+
+spam
+harassment
+illegal_content
+copyright
+violence
+scam
+other
+
+Do not automatically delete content merely because a user reports it unless a defined moderation rule requires it.
+
+==================================================
+23. RATE LIMITING
+    ==================================================
+
+Implement rate limits for:
+
+- login
+- OTP requests
+- OTP verification
+- message sending
+- file uploads
+- username changes
+- group creation
+- channel creation
+- search
+- API requests
+
+Use Redis where appropriate.
+
+Make limits configurable.
+
+Return proper HTTP status codes.
+
+==================================================
+24. CACHING
+    ==================================================
+
+Use Redis for:
+
+- sessions where appropriate
+- rate limits
+- presence
+- temporary state
+- caching
+- distributed locks where genuinely necessary
+
+Do NOT use Redis as the permanent source of truth for messages.
+
+PostgreSQL remains authoritative for persistent application data.
+
+==================================================
+25. PRESENCE
+    ==================================================
+
+Presence should be lightweight.
+
+Support:
+
+online
+offline
+last seen
+typing
+
+Use Redis/in-memory distributed mechanisms for ephemeral presence.
+
+Do not constantly write presence changes to PostgreSQL.
+
+That would create unnecessary database load.
+
+==================================================
+26. SCALABILITY
+    ==================================================
+
+Design the backend to scale horizontally.
+
+Example:
+
+                Load Balancer
+                     |
+       -------------- -------------- 
+      |              |              |
+   API #1         API #2         API #3
+      |              |              |
+       -------------- -------------- 
+                     |
+                   Redis
+                     |
+                PostgreSQL
+                     |
+              Object Storage
+                     |
+                    CDN
+
+WebSocket gateways must support horizontal scaling.
+
+Use Redis pub/sub or another appropriate message-broadcast mechanism where required.
+
+Avoid single-instance assumptions.
+
+==================================================
+27. OBSERVABILITY
+    ==================================================
+
+Implement:
+
+- structured logs
+- request IDs
+- metrics
+- health checks
+- readiness checks
+- error tracking architecture
+- latency monitoring
+
+Track:
+
+API latency
+WebSocket connections
+message throughput
+failed messages
+upload failures
+CDN errors
+database latency
+Redis latency
+push notification failures
+CPU
+RAM
+storage
+network bandwidth
+
+==================================================
+28. DEVOPS
+    ==================================================
+
+Create Dockerfiles.
+
+Create docker-compose for local development.
+
+Services should include:
+
+backend
+postgres
+redis
+object storage
+worker
+optional reverse proxy
+
+Use environment variables.
+
+Never hardcode:
+
+API keys
+passwords
+tokens
+database credentials
+cloud credentials
+
+Provide:
+
+.env.example
+
+but never commit actual secrets.
+
+==================================================
+29. BACKGROUND WORKERS
+    ==================================================
+
+Create worker architecture for:
+
+- image processing
+- video transcoding
+- thumbnail generation
+- notification processing
+- cleanup
+- virus scanning
+- scheduled jobs
+
+Do not make the HTTP request wait for expensive media processing.
+
+Example:
+
+Upload
+|
+v
+Object Storage
+|
+v
+Queue
+|
+v
+Worker
+|
+ --> Thumbnail
+ --> Transcoding
+ --> Metadata
+ --> CDN availability
+
+==================================================
+30. ERROR HANDLING
+    ==================================================
+
+Every operation must have robust failure handling.
+
+Examples:
+
+No internet
+Server unavailable
+WebSocket disconnected
+Upload interrupted
+CDN unavailable
+Database timeout
+Expired token
+Expired signed URL
+Push notification failure
+Insufficient storage
+Invalid file
+Permission denied
+
+The app should show useful states instead of crashing.
+
+==================================================
+31. PERFORMANCE
+    ==================================================
+
+Optimize:
+
+- message list rendering
+- database reads
+- database writes
+- media caching
+- image decoding
+- network requests
+- API payload size
+- WebSocket traffic
+- compression
+- startup time
+
+Do not send unnecessary fields.
+
+Use pagination.
+
+Use caching.
+
+Use lazy loading.
+
+Avoid rebuilding entire message lists when one message changes.
+
+==================================================
+32. STORAGE MANAGEMENT
+    ==================================================
+
+Create a storage-management screen.
+
+Show:
+
+Images
+Videos
+Files
+Audio
+Cache
+Total usage
+
+Allow users to:
+
+- clear cache
+- remove downloaded media
+- configure automatic media retention
+- configure maximum cache size
+
+Deleting cached media must NOT delete the actual chat message.
+
+==================================================
+33. MULTI-DEVICE
+    ==================================================
+
+A user may log in from multiple devices.
+
+Implement:
+
+- device registration
+- device sessions
+- session revocation
+- synchronization
+- per-device push tokens
+
+Example:
+
+Phone A
+Phone B
+Tablet
+Desktop
+
+All devices must eventually converge to the same server state.
+
+==================================================
+34. OFFLINE SUPPORT
+    ==================================================
+
+The app should handle temporary network loss gracefully.
+
+When offline:
+
+- show cached chats
+- show cached messages
+- allow drafting
+- queue outgoing messages
+- mark messages as pending
+- retry automatically
+
+When connectivity returns:
+
+- synchronize
+- send queued messages
+- resolve state
+- update delivery status
+
+==================================================
+35. FILE UPLOADS
+    ==================================================
+
+For large files:
+
+Do NOT upload through the backend.
+
+Use direct-to-object-storage upload.
+
+Implement resumable/multipart uploads.
+
+Track:
+
+bytes uploaded
+total bytes
+percentage
+speed
+estimated remaining time
+
+Allow cancellation.
+
+If an upload fails, retry without restarting unnecessarily.
+
+==================================================
+36. CDN CACHE STRATEGY
+    ==================================================
+
+Public media can have longer cache lifetimes.
+
+Private media should use signed access.
+
+For immutable files, use content-addressed or versioned paths where practical.
+
+Example:
+
+/media/<hash>/original
+/media/<hash>/thumbnail
+/media/<hash>/medium
+
+This reduces unnecessary CDN invalidation.
+
+==================================================
+37. ADMIN PANEL
+    ==================================================
+
+Create a web-based administration panel.
+
+Features:
+
+- user search
+- user details
+- reports
+- moderation
+- bans
+- channel management
+- group management
+- system statistics
+- storage statistics
+- bandwidth statistics
+- audit logs
+
+Admin authentication must be separate and more secure.
+
+Support:
+
+- role-based access
+- admin audit logs
+- optional 2FA
+
+==================================================
+38. TESTING
+    ==================================================
+
+Create:
+
+Unit tests
+Integration tests
+API tests
+Database tests
+Authentication tests
+WebSocket tests
+Upload tests
+Permission tests
+Pagination tests
+
+Test scenarios:
+
+- two users messaging
+- offline sending
+- reconnect
+- duplicate messages
+- message ordering
+- file upload
+- interrupted upload
+- expired URL
+- revoked session
+- blocked user
+- unauthorized admin action
+- group permission changes
+
+==================================================
+39. LOAD TESTING
+    ==================================================
+
+Prepare load tests for:
+
+API
+WebSockets
+message sending
+message retrieval
+uploads
+authentication
+search
+
+Identify bottlenecks before optimizing.
+
+Do not claim "millions of users" without explaining the actual bottlenecks and scaling strategy.
+
+==================================================
+40. DATABASE MIGRATIONS
+    ==================================================
+
+Use proper migrations.
+
+Never require users to manually modify production databases.
+
+Include:
+
+initial schema
+indexes
+constraints
+migration scripts
+rollback strategy where practical
+
+==================================================
+41. BACKUPS
+    ==================================================
+
+Design backup architecture.
+
+PostgreSQL:
+
+- automated backups
+- point-in-time recovery architecture
+- retention policy
+
+Object storage:
+
+- versioning where appropriate
+- lifecycle rules
+- redundancy
+
+Document disaster recovery.
+
+==================================================
+42. SECURITY OF MEDIA
+    ==================================================
+
+Never trust:
+
+filename
+MIME type supplied by client
+file extension
+
+Validate uploaded content server-side/worker-side.
+
+Set limits for:
+
+maximum file size
+maximum image dimensions
+maximum video duration
+maximum upload rate
+
+Prevent:
+
+path traversal
+malicious filenames
+unexpected executable uploads
+resource exhaustion
+
+==================================================
+43. API DOCUMENTATION
+    ==================================================
+
+Generate complete API documentation.
+
+For every endpoint document:
+
+method
+path
+authentication
+request
+response
+errors
+rate limits
+pagination
+examples
+
+==================================================
+44. PROJECT STRUCTURE
+    ==================================================
+
+Create a clean monorepo such as:
+
+project/
+apps/
+mobile/
+admin/
+services/
+api/
+realtime/
+worker/
+packages/
+shared/
+api_client/
+infrastructure/
+docker/
+nginx/
+migrations/
+docs/
+scripts/
+
+Adapt the exact structure to the selected technology.
+
+Do not create unnecessary complexity.
+
+==================================================
+45. CONFIGURATION
+    ==================================================
+
+Create configuration for:
+
+development
+staging
+production
+
+Use environment variables.
+
+Example:
+
+DATABASE_URL
+REDIS_URL
+OBJECT_STORAGE_ENDPOINT
+OBJECT_STORAGE_BUCKET
+OBJECT_STORAGE_ACCESS_KEY
+OBJECT_STORAGE_SECRET_KEY
+CDN_BASE_URL
+JWT_SECRET
+FCM credentials
+APNS credentials
+
+Never expose secrets to the client.
+
+==================================================
+46. LOCAL DEVELOPMENT
+    ==================================================
+
+The entire backend must be runnable locally.
+
+Provide:
+
+docker compose up
+
+or an equivalent simple command.
+
+The developer should be able to:
+
+1. start infrastructure
+2. run migrations
+3. start backend
+4. start worker
+5. run mobile application
+
+Document every command.
+
+==================================================
+47. CI/CD
+    ==================================================
+
+Create CI/CD pipelines.
+
+On every push:
+
+- format
+- lint
+- test
+- build
+- security checks
+
+For production:
+
+- build container
+- run tests
+- deploy
+- health check
+- rollback if deployment fails
+
+Never deploy automatically to production without an appropriate safety mechanism.
+
+==================================================
+48. MOBILE BUILD
+    ==================================================
+
+Provide:
+
+Android debug build
+Android release configuration
+iOS configuration
+application icons
+splash screen
+permissions
+deep links
+
+Use secure release configuration.
+
+==================================================
+49. PRIVACY
+    ==================================================
+
+Collect the minimum necessary personal data.
+
+Provide:
+
+privacy policy architecture
+account deletion
+data export architecture
+session management
+blocking
+reporting
+notification controls
+
+Do not store unnecessary sensitive information.
+
+==================================================
+50. IMPORTANT ENGINEERING RULES
+    ==================================================
+
+Rule 1:
+Do not overengineer prematurely.
+
+Rule 2:
+Do not build fake scalability.
+
+Rule 3:
+Do not use microservices merely because Telegram is large.
+
+Rule 4:
+Start with modular services that can scale independently.
+
+Rule 5:
+PostgreSQL is the source of truth for persistent relational data.
+
+Rule 6:
+Redis is for ephemeral/high-speed state and caching, not permanent message storage.
+
+Rule 7:
+Object storage stores large files.
+
+Rule 8:
+CDN serves media to users.
+
+Rule 9:
+API servers should not proxy large files.
+
+Rule 10:
+WebSockets handle real-time events.
+
+Rule 11:
+Workers handle expensive asynchronous operations.
+
+Rule 12:
+The client must never be trusted for authorization.
+
+Rule 13:
+Never invent cryptography.
+
+Rule 14:
+Never hardcode secrets.
+
+Rule 15:
+Never use mock implementations for features claimed to be production-ready.
+
+==================================================
+51. IMPLEMENTATION ORDER
+    ==================================================
+
+Build in this order:
+
+PHASE 1
+Project structure
+Mobile shell
+Backend
+PostgreSQL
+Authentication
+
+PHASE 2
+Users
+Profiles
+Sessions
+Private chats
+
+PHASE 3
+WebSockets
+Real-time messages
+Read/delivery states
+Typing/presence
+
+PHASE 4
+Local database
+Offline mode
+Synchronization
+
+PHASE 5
+Object storage
+Signed uploads
+CDN
+Media messages
+
+PHASE 6
+Groups
+Permissions
+Moderation
+
+PHASE 7
+Channels
+Search
+Notifications
+
+PHASE 8
+Admin panel
+Monitoring
+Logging
+Analytics
+
+PHASE 9
+Security hardening
+Testing
+Load testing
+Deployment
+
+PHASE 10
+Optimization
+Documentation
+Production readiness
+
+==================================================
+52. DELIVERABLES
+    ==================================================
+
+At the end provide:
+
+1. Complete source code
+2. Mobile application
+3. Backend
+4. Realtime server
+5. Worker system
+6. Admin panel
+7. Database schema
+8. Migrations
+9. Docker configuration
+10. CDN/object-storage configuration
+11. API documentation
+12. Environment example
+13. CI/CD
+14. Tests
+15. README
+16. Deployment guide
+17. Architecture diagram
+18. Security documentation
+19. Scaling documentation
+20. Backup/recovery documentation
+
+==================================================
+53. FINAL QUALITY CHECK
+    ==================================================
+
+Before declaring completion, inspect the entire project.
+
+Check:
+
+- Does authentication actually work?
+- Can two real users communicate?
+- Do messages persist?
+- Does WebSocket reconnect?
+- Does offline mode work?
+- Do uploads use direct object storage?
+- Does CDN delivery work?
+- Are signed URLs used?
+- Are permissions enforced server-side?
+- Are database indexes present?
+- Are large chats paginated?
+- Are push notifications implemented?
+- Are errors handled?
+- Are secrets protected?
+- Can the backend restart without losing persistent data?
+- Can multiple backend instances run?
+- Can WebSocket instances scale horizontally?
+- Can workers run independently?
+- Are tests present?
+- Does the mobile app work on low-end devices?
+- Are there any fake/demo-only features?
+- Are there TODOs hiding unfinished core functionality?
+
+Fix problems before declaring the project complete.
+
+==================================================
+54. ARCHITECTURE DOCUMENTATION
+    ==================================================
+
+Create:
+
+docs/architecture.md
+
+Explain:
+
+Mobile
+API
+WebSocket
+PostgreSQL
+Redis
+Object Storage
+CDN
+Workers
+Push Notifications
+Admin Panel
+
+Also document:
+
+request flow
+message flow
+upload flow
+download flow
+authentication flow
+reconnection flow
+offline synchronization
+scaling strategy
+failure scenarios
+backup strategy
+security model
+
+==================================================
+55. COST-AWARE ARCHITECTURE
+    ==================================================
+
+Do not assume unlimited budget.
+
+Design infrastructure so that:
+
+- CDN reduces origin bandwidth
+- object storage is used for media
+- API servers remain stateless where practical
+- workers scale according to queue depth
+- PostgreSQL is optimized before adding another database
+- Redis is sized according to actual usage
+- media is compressed and transcoded appropriately
+- logs do not grow without limits
+
+Provide a section explaining which components become expensive first as user count increases.
+
+==================================================
+56. OUTPUT FORMAT
+    ==================================================
+
+When starting the project:
+
+1. Analyze requirements.
+2. Propose the final architecture.
+3. Explain important technology choices briefly.
+4. Create the project structure.
+5. Implement Phase 1.
+6. Run tests.
+7. Fix errors.
+8. Continue phase by phase.
+9. Never stop at a mockup.
+10. Keep the project buildable after every major phase.
+
+When you encounter a technical limitation:
+
+- explain it clearly
+- choose the closest production-grade solution
+- continue implementation
+- document the limitation
+
+Do not stop simply because a feature is complex.
+
+The final goal is a real, scalable, secure, CDN-backed mobile messaging platform — not a visual clone or prototype.
