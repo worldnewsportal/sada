@@ -22,13 +22,16 @@ jobs:
       - name: Typecheck
         run: bunx tsc --noEmit
       - name: Prisma schema validation
-        run: bunx prisma validate
+        run: DATABASE_URL="file:./db/test.db" bunx prisma validate
       - name: Integration tests (isolated DB)
         run: |
-          DATABASE_URL="file:./db/test-ci.db" bunx prisma db push --skip-generate
+          mkdir -p db
+          DATABASE_URL="file:./db/test.db" bunx prisma db push --skip-generate
           bun test tests/
       - name: Build
-        run: bun run build
+        run: |
+          mkdir -p db
+          DATABASE_URL="file:./db/test.db" bun run build
       - name: Security audit
         run: bun audit --production || true
 

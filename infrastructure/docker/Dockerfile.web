@@ -13,6 +13,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
 COPY . .
 ENV NODE_ENV=production
+ENV DATABASE_URL="file:./db/data.db"
 RUN bun run build || npx next build
 
 FROM oven/bun:1 AS runner
