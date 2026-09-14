@@ -68,3 +68,26 @@ Stage Summary:
 - OTP hardening confirmed live: hashed+salted codes, 5-min TTL, 5-attempt cap, 45s resend cooldown, 10/hour ceiling, per-phone + per-IP rate limits, audit events.
 - Devices stuck on stale PWA bundles now self-heal (SW v2 network-first + one-time auto-reload). Users with the old cache need ONE manual refresh to escape v1; from then on updates apply automatically.
 - Rule added: never cache-first the app document in the service worker; client must defensively validate API response shapes at auth boundaries.
+
+---
+Task ID: 4
+Agent: Super Z (main)
+Task: Add real, secure email registration + multi-option login (phone/email × activation code/password) per user request
+
+Work Log:
+- Schema: User.phone/phoneHash → nullable (email-only accounts), +emailVerifiedAt, +passwordHash (bcrypt 12), +passwordFailCount/passwordLockedUntil (DB-backed lockout); new EmailOtp model (hashed code + salt, attempts, pendingPasswordHash, TTL index). db:push on dev + test DBs.
+- src/lib/server/security/email.ts: EmailProvider layer — SMTP via nodemailer (real delivery: Brevo/SendGrid/Gmail/any SMTP; TLS auto by port, timeouts, no error-body leakage), console dev fallback, none→clear error; bilingual (AR-RTL + EN) welcome/activation HTML+text template with 10-min code.
+- env.ts: SMTP_HOST/PORT/USER/PASS/SECURE, EMAIL_FROM, EMAIL_RESEND_COOLDOWN_S(60), EMAIL_MAX_PER_HOUR(10), PASSWORD_LOCK_ATTEMPTS(5), PASSWORD_LOCK_MINUTES(15). .env.example documents provider setup + SPF/DKIM note.
+- auth.service: requestEmailOtp (signup/login unified — new email gets welcome+activation, known email gets sign-in code; response never reveals existence; optional signup password policy-checked THEN hashed and stored pending INSIDE the OTP row, applied only after activation), verifyEmailOtp (creates email-only user, emailVerifiedAt, applies pending password), loginPassword (identifier = email OR phone; uniform "Incorrect credentials"; lockout after 5 fails → 15 min incl. correct password), setPassword (set/change with current-password check), normalizeEmail.
+- password.ts: validateUserPassword (min 8, letters+digits, common-password denylist) — admin policy unchanged (stronger).
+- Routes: POST auth/request-email-otp, auth/verify-email-otp (sets session cookies), auth/login-password, GET/POST users/me/password (hasPassword + set/change); users/me now returns email; AuthContext.user + email + nullable phone; rate-limit table +3 named entries.
+- Client: auth-screen rebuilt with 📱هاتف/✉️بريد tabs; email tab = إنشاء حساب (optional password + policy hint + "activation code + welcome" note) | تسجيل دخول (رمز التفعيل | كلمة المرور); OTP step shared with new ✉️ email-delivered note; settings-screen: new "كلمة مرور الدخول" section (set/change with current-password); profile card falls back username→phone→email; i18n ar+en ~20 new keys (dedup with existing `password` key).
+- Fixed test infra: tests/setup.ts now sets OTP_DEV_ECHO=true (tests read devCode; prod never loads this file); pushed new schema to isolated test.db.
+- Tests +3 (28/28 PASS): signup→activation→pending-password applied→password login; 5-fail lockout blocks even correct password→unlock→success; login-by-code does not duplicate accounts (isNew=false for existing).
+- Browser verification (agent-browser, real flows): email signup demo.user@example.com + password → OTP step (welcome email code 900247 logged server-side) → activate → profile → in-app ✅; logout → login by email+password → in-app ✅; logout → login by email code → in-app ✅; settings password section renders change form ✅; phone regression via curl ✅; zero page errors.
+- Gates: tsc --noEmit CLEAN, eslint CLEAN, bun test 28/28 PASS. Evidence: download/sada-email-signup-otp.png, sada-email-registered-in-app.png, sada-settings-password.png.
+
+Stage Summary:
+- Email auth is production-ready: real SMTP delivery the moment SMTP_* is set (Brevo/Gmail/SendGrid/any), dev-echo fallback auto-disabled in production, codes hashed+salted 10-min TTL 5 attempts, 60s resend cooldown + 10/hour cap per email, brute-force lockout 5→15min (DB-backed, survives restarts), uniform errors (no enumeration), pending signup password never stored plaintext.
+- Login matrix now: phone+SMS/test-code, email+code, email/phone+password, 2FA on top — all sharing issueSession (sessions/2FA/audit unchanged).
+- Rule: signup passwords live as pendingPasswordHash inside the EmailOtp row until activation; never on the user before verify.

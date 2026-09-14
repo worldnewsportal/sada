@@ -264,6 +264,12 @@ function phoneHashLike(rawPhone: string): string {
 
 // ---------- settings ----------
 
+/** Whether the account has a sign-in password (for settings UI). */
+export async function hasPassword(userId: string) {
+  const u = await db.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
+  return { hasPassword: !!u?.passwordHash };
+}
+
 export async function getSettings(userId: string) {
   let s = await db.userSettings.findUnique({ where: { userId } });
   if (!s) s = await db.userSettings.create({ data: { userId } });

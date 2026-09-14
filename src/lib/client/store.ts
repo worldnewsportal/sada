@@ -33,7 +33,7 @@ export interface CallState {
 
 interface MessengerState {
   // auth
-  me: { id: string; displayName: string; username: string | null; avatarMediaId: string | null; phone?: string; avatarColor?: number } | null;
+  me: { id: string; displayName: string; username: string | null; avatarMediaId: string | null; phone?: string; email?: string; avatarColor?: number } | null;
   authChecked: boolean;
   setMe: (me: MessengerState["me"]) => void;
 

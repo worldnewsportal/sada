@@ -357,6 +357,103 @@ describe("admin (spec §37)", () => {
   });
 });
 
+describe("email auth (signup + welcome code + password login)", () => {
+  test("email signup: code issued, user created on verify, pending password applied", async () => {
+    const { requestEmailOtp, verifyEmailOtp, normalizeEmail } = await import("../src/lib/server/services/auth.service");
+    expect(normalizeEmail("  USER@Example.COM ")).toBe("user@example.com");
+    let threw = false;
+    try {
+      normalizeEmail("not-an-email");
+    } catch {
+      threw = true;
+    }
+    expect(threw).toBe(true);
+
+    const email = `signup-${randomBytes(4).toString("hex")}@test.local`;
+    // weak password rejected BEFORE mail is sent
+    let weak = null as null | string;
+    try {
+      await requestEmailOtp(email, { intent: "signup", password: "short" }, "test-ip");
+    } catch (e) {
+      weak = (e as Error).message;
+    }
+    expect(weak).toContain("8 characters");
+
+    const req = await requestEmailOtp(email, { intent: "signup", password: "GoodPass123" }, "test-ip");
+    expect(req.sent).toBe(true);
+    expect(req.devCode).toMatch(/^\d{6}$/); // dev-echo in test env (auto-off in production)
+
+    const login = await verifyEmailOtp(email, req.devCode, { deviceName: "test", platform: "test" }, "test-ip");
+    expect(login.status).toBe("ok");
+    expect(login.user?.email).toBe(email);
+    expect(login.user?.phone).toBeNull(); // email-only account
+
+    // pending password was applied on activation → password login works
+    const { loginPassword } = await import("../src/lib/server/services/auth.service");
+    const pwLogin = await loginPassword(email, "GoodPass123", { deviceName: "test", platform: "test" }, "test-ip");
+    expect(pwLogin.status).toBe("ok");
+
+    // wrong password → uniform generic error (no user enumeration)
+    let badMsg = "";
+    try {
+      await loginPassword(email, "NopeNope99", { deviceName: "test", platform: "test" }, "test-ip");
+    } catch (e) {
+      badMsg = (e as Error).message;
+    }
+    expect(badMsg.length).toBeGreaterThan(0);
+  });
+
+  test("password lockout: N failures lock the account even for the correct password", async () => {
+    const { requestEmailOtp, verifyEmailOtp, loginPassword } = await import("../src/lib/server/services/auth.service");
+    const { db } = await import("../src/lib/db");
+    const email = `lock-${randomBytes(4).toString("hex")}@test.local`;
+    const req = await requestEmailOtp(email, { intent: "signup", password: "LockTest123" }, "test-ip");
+    await verifyEmailOtp(email, req.devCode, { deviceName: "test", platform: "test" }, "test-ip");
+
+    let lastErr: { status?: number; message?: string } | null = null;
+    for (let i = 0; i < 5; i++) {
+      try {
+        await loginPassword(email, `WrongPass${i}x`, { deviceName: "test", platform: "test" }, "test-ip");
+      } catch (e) {
+        lastErr = e as { status?: number; message?: string };
+      }
+    }
+    expect(lastErr?.status).toBe(429); // 5th failure → lockout
+    // correct password ALSO blocked while locked
+    let correctBlocked = false;
+    try {
+      await loginPassword(email, "LockTest123", { deviceName: "test", platform: "test" }, "test-ip");
+    } catch {
+      correctBlocked = true;
+    }
+    expect(correctBlocked).toBe(true);
+
+    // unlock directly, then correct password succeeds
+    const user = await db.user.findUnique({ where: { email } });
+    await db.user.update({ where: { id: user!.id }, data: { passwordLockedUntil: null, passwordFailCount: 0 } });
+    const ok = await loginPassword(email, "LockTest123", { deviceName: "test", platform: "test" }, "test-ip");
+    expect(ok.status).toBe("ok");
+  });
+
+  test("email login by code for an EXISTING account (no re-registration)", async () => {
+    const { requestEmailOtp, verifyEmailOtp } = await import("../src/lib/server/services/auth.service");
+    const { db } = await import("../src/lib/db");
+    const email = `login-${randomBytes(4).toString("hex")}@test.local`;
+    expect(await db.user.count({ where: { email } })).toBe(0);
+
+    const req = await requestEmailOtp(email, { intent: "login" }, "test-ip");
+    await verifyEmailOtp(email, req.devCode, { deviceName: "test", platform: "test" }, "test-ip");
+    expect(await db.user.count({ where: { email } })).toBe(1);
+
+    // simulate cooldown expiry, then login-by-code again — must NOT create a duplicate
+    await db.emailOtp.deleteMany({ where: { email } });
+    const req2 = await requestEmailOtp(email, { intent: "login" }, "test-ip");
+    expect(req2.isNew).toBe(false); // server knows the account exists (drives welcome vs login template)
+    await verifyEmailOtp(email, req2.devCode, { deviceName: "test", platform: "test" }, "test-ip");
+    expect(await db.user.count({ where: { email } })).toBe(1);
+  });
+});
+
 afterAll(async () => {
   await db.$disconnect();
 });

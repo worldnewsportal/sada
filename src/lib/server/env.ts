@@ -141,4 +141,39 @@ export const env = {
     // the sliding-window limiter; survives limiter restarts since it counts DB rows).
     return parseInt(process.env.SMS_MAX_PER_HOUR || "10", 10);
   },
+  // ---------- EMAIL (signup / login / welcome) ----------
+  get SMTP_HOST() {
+    return process.env.SMTP_HOST || "";
+  },
+  get SMTP_PORT() {
+    return parseInt(process.env.SMTP_PORT || "587", 10);
+  },
+  get SMTP_USER() {
+    return process.env.SMTP_USER || "";
+  },
+  get SMTP_PASS() {
+    return process.env.SMTP_PASS || "";
+  },
+  get SMTP_SECURE() {
+    // Auto: 465 → implicit TLS, otherwise STARTTLS (unless explicitly set).
+    return process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : this.SMTP_PORT === 465;
+  },
+  get EMAIL_FROM() {
+    return process.env.EMAIL_FROM || "Sada \u0635\u062f\u0649 <no-reply@sada.local>";
+  },
+  get EMAIL_RESEND_COOLDOWN_S() {
+    // Email is slower than SMS and costs little — but cooldown still stops
+    // mailbox-bombing and code-injection spam.
+    return parseInt(process.env.EMAIL_RESEND_COOLDOWN_S || "60", 10);
+  },
+  get EMAIL_MAX_PER_HOUR() {
+    return parseInt(process.env.EMAIL_MAX_PER_HOUR || "10", 10);
+  },
+  get PASSWORD_LOCK_ATTEMPTS() {
+    // Failed password logins before temporary lockout (brute-force defense).
+    return parseInt(process.env.PASSWORD_LOCK_ATTEMPTS || "5", 10);
+  },
+  get PASSWORD_LOCK_MINUTES() {
+    return parseInt(process.env.PASSWORD_LOCK_MINUTES || "15", 10);
+  },
 };

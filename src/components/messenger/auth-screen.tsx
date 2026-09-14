@@ -1,5 +1,7 @@
 "use client";
 // Auth flow (spec screens 2-4): phone → OTP → (2FA) → profile setup.
+// Dual registration: phone (+999 test / real SMS) OR email (activation code
+// + welcome mail, optional signup password, password login).
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,18 +11,28 @@ import { useStore } from "@/lib/client/store";
 import { api, post, ApiClientError } from "@/lib/client/api";
 
 type Step = "phone" | "otp" | "twofa" | "profile";
-type Delivery = "test" | "sms" | "dev" | null;
+type Method = "phone" | "email";
+type EmailIntent = "signup" | "login";
+type EmailLoginMode = "code" | "password";
+type Delivery = "test" | "sms" | "dev" | "email" | null;
 
 // Must mirror server TEST_PHONE_PREFIXES default (+999 — unassigned country
 // code, collision-free). Server remains the source of truth; this only
 // drives UI affordances (badge/hint) before the request round-trips.
 const TEST_PREFIX = "+999";
 const isTestPhoneLocal = (phone: string) => phone.replace(/[\s()-]/g, "").startsWith(TEST_PREFIX);
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export default function AuthScreen() {
   const t = useT();
   const [step, setStep] = useState<Step>("phone");
+  const [method, setMethod] = useState<Method>("phone");
   const [phone, setPhone] = useState("+964");
+  const [email, setEmail] = useState("");
+  const [emailIntent, setEmailIntent] = useState<EmailIntent>("signup");
+  const [emailLoginMode, setEmailLoginMode] = useState<EmailLoginMode>("code");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const [code, setCode] = useState("");
   const [twofa, setTwofa] = useState("");
   const [name, setName] = useState("");
@@ -32,7 +44,10 @@ export default function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const setMe = useStore((s) => s.setMe);
 
-  const requestOtp = async () => {
+  const fail = (e: unknown) => setError((e as ApiClientError).message || String(e));
+
+  // ---------- PHONE (existing flow) ----------
+  const requestPhoneOtp = async () => {
     setBusy(true);
     setError("");
     try {
@@ -46,13 +61,13 @@ export default function AuthScreen() {
       setDelivery(res.delivery || (res.devCode ? "dev" : "sms"));
       setStep("otp");
     } catch (e) {
-      setError((e as ApiClientError).message);
+      fail(e);
     } finally {
       setBusy(false);
     }
   };
 
-  const verifyOtp = async () => {
+  const verifyPhoneOtp = async () => {
     setBusy(true);
     setError("");
     try {
@@ -71,7 +86,90 @@ export default function AuthScreen() {
       }
       await afterLogin();
     } catch (e) {
-      setError((e as ApiClientError).message);
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ---------- EMAIL ----------
+  const requestEmailCode = async (intent: EmailIntent) => {
+    if (!EMAIL_RE.test(email.trim())) {
+      setError(t.invalidEmail);
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const res = await post<{ sent: boolean; delivery?: "email" | "dev"; isNew?: boolean; devCode?: string }>(
+        "auth/request-email-otp",
+        {
+          email: email.trim().toLowerCase(),
+          intent,
+          // signup: optional password (hashed server-side, applied on activation)
+          ...(intent === "signup" && signupPassword ? { password: signupPassword } : {}),
+        }
+      );
+      if (!res || typeof res !== "object" || res.sent !== true) {
+        throw new ApiClientError("BAD_RESPONSE", t.badResponse, 0);
+      }
+      setDevCode(res.devCode || null);
+      setDelivery(res.delivery || (res.devCode ? "dev" : "email"));
+      setStep("otp");
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loginByEmailPassword = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await post<{ status: string; twofaTicket?: string }>("auth/login-password", {
+        identifier: email.trim().toLowerCase(),
+        password: loginPassword,
+        deviceName: detectDevice(),
+        platform: "web",
+      });
+      if (!res || typeof res !== "object" || !res.status) {
+        throw new ApiClientError("BAD_RESPONSE", t.badResponse, 0);
+      }
+      if (res.status === "twofa_required" && res.twofaTicket) {
+        setTicket(res.twofaTicket);
+        setStep("twofa");
+        return;
+      }
+      await afterLogin();
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verifyEmailOtp = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await post<{ status: string; twofaTicket?: string }>("auth/verify-email-otp", {
+        email: email.trim().toLowerCase(),
+        code: code.trim(),
+        deviceName: detectDevice(),
+        platform: "web",
+      });
+      if (!res || typeof res !== "object" || !res.status) {
+        throw new ApiClientError("BAD_RESPONSE", t.badResponse, 0);
+      }
+      if (res.status === "twofa_required" && res.twofaTicket) {
+        setTicket(res.twofaTicket);
+        setStep("twofa");
+        return;
+      }
+      await afterLogin();
+    } catch (e) {
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -84,7 +182,7 @@ export default function AuthScreen() {
       await post("auth/twofa", { ticket, code: twofa.trim(), deviceName: detectDevice(), platform: "web" });
       await afterLogin();
     } catch (e) {
-      setError((e as ApiClientError).message);
+      fail(e);
     } finally {
       setBusy(false);
     }
@@ -123,11 +221,38 @@ export default function AuthScreen() {
       });
       await afterLogin();
     } catch (e) {
-      setError((e as ApiClientError).message);
+      fail(e);
     } finally {
       setBusy(false);
     }
   };
+
+  const backToStart = () => {
+    setStep("phone");
+    setCode("");
+    setDevCode(null);
+    setDelivery(null);
+  };
+
+  const verifyCurrent = () => (method === "email" ? verifyEmailOtp() : verifyPhoneOtp());
+
+  // segmented control (tabs)
+  const Seg = ({ value, options, onChange }: { value: string; options: { v: string; label: string }[]; onChange: (v: string) => void }) => (
+    <div className="grid grid-cols-2 gap-1 bg-teal-950/60 border border-teal-800/60 rounded-xl p-1">
+      {options.map((o) => (
+        <button
+          key={o.v}
+          type="button"
+          onClick={() => onChange(o.v)}
+          className={`py-2 text-sm font-bold rounded-lg transition-colors ${
+            value === o.v ? "bg-teal-500 text-teal-950 shadow" : "text-teal-300 hover:text-teal-100"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="h-full flex items-center justify-center bg-gradient-to-b from-teal-950 to-teal-900 p-4 overflow-y-auto">
@@ -150,29 +275,143 @@ export default function AuthScreen() {
           <CardContent className="pt-6 space-y-4">
             {step === "phone" && (
               <>
-                <label className="text-sm text-teal-200">{t.phone}</label>
-                <Input
-                  dir="ltr"
-                  className="bg-teal-950/60 border-teal-700 text-teal-50 text-left"
-                  placeholder={t.phoneHint}
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && requestOtp()}
-                  inputMode="tel"
-                  aria-label={t.phone}
+                <Seg
+                  value={method}
+                  options={[
+                    { v: "phone", label: `📱 ${t.methodPhone}` },
+                    { v: "email", label: `✉️ ${t.methodEmail}` },
+                  ]}
+                  onChange={(v) => {
+                    setMethod(v as Method);
+                    setError("");
+                  }}
                 />
-                {isTestPhoneLocal(phone) && (
-                  <p className="text-xs font-medium text-amber-300/90 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2" dir="rtl">
-                    🧪 {t.testModeBadge}
-                  </p>
+
+                {method === "phone" && (
+                  <>
+                    <label className="text-sm text-teal-200">{t.phone}</label>
+                    <Input
+                      dir="ltr"
+                      className="bg-teal-950/60 border-teal-700 text-teal-50 text-left"
+                      placeholder={t.phoneHint}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && requestPhoneOtp()}
+                      inputMode="tel"
+                      aria-label={t.phone}
+                    />
+                    {isTestPhoneLocal(phone) && (
+                      <p className="text-xs font-medium text-amber-300/90 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2" dir="rtl">
+                        🧪 {t.testModeBadge}
+                      </p>
+                    )}
+                    <details className="text-xs text-teal-300/80">
+                      <summary className="cursor-pointer select-none hover:text-teal-200">{t.testModeBadge}؟</summary>
+                      <p className="mt-2 leading-relaxed" dir="rtl">{t.testModeHint}</p>
+                    </details>
+                    <Button className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold" disabled={busy} onClick={requestPhoneOtp}>
+                      {t.sendCode}
+                    </Button>
+                  </>
                 )}
-                <details className="text-xs text-teal-300/80">
-                  <summary className="cursor-pointer select-none hover:text-teal-200">{t.testModeBadge}؟</summary>
-                  <p className="mt-2 leading-relaxed" dir="rtl">{t.testModeHint}</p>
-                </details>
-                <Button className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold" disabled={busy} onClick={requestOtp}>
-                  {t.sendCode}
-                </Button>
+
+                {method === "email" && (
+                  <>
+                    <label className="text-sm text-teal-200">{t.emailLabel}</label>
+                    <Input
+                      dir="ltr"
+                      type="email"
+                      autoComplete="email"
+                      className="bg-teal-950/60 border-teal-700 text-teal-50 text-left"
+                      placeholder="name@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      inputMode="email"
+                      aria-label={t.emailLabel}
+                    />
+                    <Seg
+                      value={emailIntent}
+                      options={[
+                        { v: "signup", label: t.tabSignup },
+                        { v: "login", label: t.tabLogin },
+                      ]}
+                      onChange={(v) => {
+                        setEmailIntent(v as EmailIntent);
+                        setError("");
+                      }}
+                    />
+
+                    {emailIntent === "signup" ? (
+                      <>
+                        <label className="text-xs text-teal-300">{t.optionalPassword}</label>
+                        <Input
+                          dir="ltr"
+                          type="password"
+                          autoComplete="new-password"
+                          className="bg-teal-950/60 border-teal-700 text-teal-50 text-left"
+                          value={signupPassword}
+                          onChange={(e) => setSignupPassword(e.target.value)}
+                          aria-label={t.optionalPassword}
+                        />
+                        {signupPassword && (
+                          <p className="text-[11px] text-teal-400/80" dir="rtl">{t.passwordPolicyHint}</p>
+                        )}
+                        <p className="text-xs text-teal-300/80 text-center" dir="rtl">{t.activationSent}</p>
+                        <Button
+                          className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold"
+                          disabled={busy || !email.trim()}
+                          onClick={() => requestEmailCode("signup")}
+                        >
+                          {t.createAccountBtn}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Seg
+                          value={emailLoginMode}
+                          options={[
+                            { v: "code", label: t.byActivationCode },
+                            { v: "password", label: t.byPassword },
+                          ]}
+                          onChange={(v) => {
+                            setEmailLoginMode(v as EmailLoginMode);
+                            setError("");
+                          }}
+                        />
+                        {emailLoginMode === "code" ? (
+                          <Button
+                            className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold"
+                            disabled={busy || !email.trim()}
+                            onClick={() => requestEmailCode("login")}
+                          >
+                            {t.sendLoginCode}
+                          </Button>
+                        ) : (
+                          <>
+                            <label className="text-xs text-teal-300">{t.password}</label>
+                            <Input
+                              dir="ltr"
+                              type="password"
+                              autoComplete="current-password"
+                              className="bg-teal-950/60 border-teal-700 text-teal-50 text-left"
+                              value={loginPassword}
+                              onChange={(e) => setLoginPassword(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && loginByEmailPassword()}
+                              aria-label={t.password}
+                            />
+                            <Button
+                              className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold"
+                              disabled={busy || !email.trim() || !loginPassword}
+                              onClick={loginByEmailPassword}
+                            >
+                              {t.login}
+                            </Button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
               </>
             )}
 
@@ -181,6 +420,10 @@ export default function AuthScreen() {
                 {delivery === "test" ? (
                   <p className="text-xs font-medium text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 text-center" dir="rtl">
                     🧪 {t.testModeNote}
+                  </p>
+                ) : delivery === "email" ? (
+                  <p className="text-xs font-medium text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2 text-center" dir="rtl">
+                    ✉️ {t.emailOtpSent}
                   </p>
                 ) : delivery === "dev" ? (
                   <p className="text-xs text-teal-300/90 bg-teal-500/10 border border-teal-500/30 rounded-lg px-3 py-2 text-center" dir="rtl">
@@ -192,7 +435,7 @@ export default function AuthScreen() {
                   </p>
                 )}
                 <p className="text-sm text-teal-200">
-                  {t.codeSentTo} <span dir="ltr" className="font-bold">{phone}</span>
+                  {t.codeSentTo} <span dir="ltr" className="font-bold">{method === "email" ? email : phone}</span>
                 </p>
                 <Input
                   dir="ltr"
@@ -200,7 +443,7 @@ export default function AuthScreen() {
                   placeholder="••••••"
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  onKeyDown={(e) => e.key === "Enter" && verifyOtp()}
+                  onKeyDown={(e) => e.key === "Enter" && verifyCurrent()}
                   inputMode="numeric"
                   aria-label={t.code}
                   autoComplete="one-time-code"
@@ -216,10 +459,10 @@ export default function AuthScreen() {
                     <span className="block text-[10px] text-teal-400/70 mt-1">↖ {t.code}</span>
                   </button>
                 )}
-                <Button className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold" disabled={busy || code.length < 4} onClick={verifyOtp}>
+                <Button className="w-full bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold" disabled={busy || code.length < 4} onClick={verifyCurrent}>
                   {t.verifyCode}
                 </Button>
-                <Button variant="ghost" className="w-full text-teal-300" onClick={() => setStep("phone")}>
+                <Button variant="ghost" className="w-full text-teal-300" onClick={backToStart}>
                   {t.resend}
                 </Button>
               </>

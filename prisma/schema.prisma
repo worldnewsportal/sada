@@ -29,9 +29,14 @@ datasource db {
 
 model User {
   id               String    @id
-  phone            String    @unique // E.164
-  phoneHash        String    @unique // sha256(phone + APP_PEPPER) for privacy-preserving contact sync
+  phone            String?   @unique // E.164 (null for email-only accounts)
+  phoneHash        String?   @unique // sha256(phone + APP_PEPPER) for privacy-preserving contact sync
   email            String?   @unique
+  emailVerifiedAt  DateTime? // set when an email OTP code is verified
+  // password login (optional — accounts can be code-only)
+  passwordHash     String?   // bcrypt cost 12
+  passwordFailCount Int      @default(0) // brute-force lockout counter
+  passwordLockedUntil DateTime?
   username         String?   @unique // globally unique, [a-z0-9_]{4,32}
   displayName      String
   bio              String?
@@ -112,6 +117,21 @@ model OtpCode {
   createdAt  DateTime  @default(now())
 
   @@index([phone, createdAt])
+}
+
+model EmailOtp {
+  id                  String    @id
+  email               String
+  codeHash            String    // sha256(code + salt) — never plaintext
+  salt                String
+  attempts            Int       @default(0)
+  pendingPasswordHash String?   // bcrypt hash applied on successful activation (signup with password)
+  ip                  String?
+  expiresAt           DateTime
+  consumedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
+  @@index([email, createdAt])
 }
 
 // ---------- Chats ----------

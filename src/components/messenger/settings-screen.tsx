@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Section = "root" | "profile" | "privacy" | "notifications" | "devices" | "storage" | "blocked" | "twofa";
+type Section = "root" | "profile" | "privacy" | "notifications" | "devices" | "storage" | "blocked" | "twofa" | "password";
 
 export default function SettingsScreen() {
   const t = useT();
@@ -51,6 +51,7 @@ export default function SettingsScreen() {
             {section === "storage" && <StorageSection />}
             {section === "blocked" && <BlockedSection />}
             {section === "twofa" && <TwofaSection />}
+            {section === "password" && <PasswordSection />}
           </div>
         </ScrollArea>
       </div>
@@ -76,7 +77,7 @@ export default function SettingsScreen() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold truncate">{me?.displayName}</p>
-              <p className="text-sm text-muted-foreground" dir="ltr">{me?.username ? `@${me.username}` : me?.phone}</p>
+              <p className="text-sm text-muted-foreground" dir="ltr">{me?.username ? `@${me.username}` : me?.phone || me?.email}</p>
             </div>
             <User className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -87,6 +88,7 @@ export default function SettingsScreen() {
           <SettingsRow icon={<HardDrive className="w-4 h-4" />} label={t.storage} onClick={() => setSection("storage")} />
           <SettingsRow icon={<Ban className="w-4 h-4" />} label={t.blockedUsers} onClick={() => setSection("blocked")} />
           <SettingsRow icon={<KeyRound className="w-4 h-4" />} label={t.twofa} onClick={() => setSection("twofa")} />
+          <SettingsRow icon={<Lock className="w-4 h-4" />} label={t.passwordSettings} onClick={() => setSection("password")} />
 
           {/* language */}
           <LanguageRow />
@@ -112,6 +114,7 @@ function sectionTitle(s: Section, t: ReturnType<typeof useT>): string {
   const map: Record<Section, string> = {
     root: t.settings, profile: t.profile, privacy: t.privacy, notifications: t.notifications,
     devices: t.devices, storage: t.storage, blocked: t.blockedUsers, twofa: t.twofa,
+    password: t.passwordSettings,
   };
   return map[s];
 }
@@ -457,6 +460,61 @@ function TwofaSection() {
       ) : (
         <Button className="w-full bg-teal-600 hover:bg-teal-500" onClick={start}>{t.enable}</Button>
       )}
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+function PasswordSection() {
+  const t = useT();
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    get<{ hasPassword: boolean }>("users/me/password").then((r) => setHasPassword(r.hasPassword)).catch(() => setHasPassword(false));
+  }, []);
+
+  const save = async () => {
+    setBusy(true);
+    setError("");
+    setMsg("");
+    try {
+      await post("users/me/password", {
+        ...(hasPassword ? { currentPassword: current } : {}),
+        newPassword: next,
+      });
+      setHasPassword(true);
+      setCurrent("");
+      setNext("");
+      setMsg(t.passwordSaved);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (hasPassword === null) return null;
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">{t.passwordSettingsHint}</p>
+      {hasPassword && (
+        <>
+          <Label htmlFor="cur-pw">{t.currentPassword}</Label>
+          <Input id="cur-pw" dir="ltr" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
+        </>
+      )}
+      <Label htmlFor="new-pw">{hasPassword ? t.newPassword : t.password}</Label>
+      <Input id="new-pw" dir="ltr" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
+      <p className="text-xs text-muted-foreground">{t.passwordPolicyHint}</p>
+      <Button className="w-full bg-teal-600 hover:bg-teal-500" disabled={busy || next.length < 8 || (hasPassword && !current)} onClick={save}>
+        {hasPassword ? t.changePasswordBtn : t.setPasswordBtn}
+      </Button>
+      {msg && <p className="text-xs text-emerald-600">{msg}</p>}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );

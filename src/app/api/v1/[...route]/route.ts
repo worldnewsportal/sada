@@ -77,6 +77,58 @@ router.post("auth/twofa", async (ctx) => {
   return res;
 }, { auth: false });
 
+// ---------------- AUTH: EMAIL (signup + login) ----------------
+
+router.post("auth/request-email-otp", async (ctx) => {
+  const body = await ctx.json<{ email: string; intent?: "signup" | "login"; password?: string }>();
+  const parsed = z
+    .object({
+      email: z.string().min(5).max(254),
+      intent: z.enum(["signup", "login"]).optional(),
+      password: z.string().min(1).max(128).optional(),
+    })
+    .parse(body);
+  return ok(await auth.requestEmailOtp(parsed.email, { intent: parsed.intent, password: parsed.password }, ctx.ip));
+}, { auth: false });
+
+router.post("auth/verify-email-otp", async (ctx) => {
+  const body = await ctx.json<{ email: string; code: string; deviceName?: string; platform?: string }>();
+  const parsed = z
+    .object({
+      email: z.string().min(5).max(254),
+      code: z.string().min(4).max(8),
+      deviceName: z.string().max(60).optional(),
+      platform: z.string().max(20).optional(),
+    })
+    .parse(body);
+  const result = await auth.verifyEmailOtp(parsed.email, parsed.code, parsed, ctx.ip);
+  const res = ok(result);
+  if (result.status === "ok" && result.accessToken && result.refreshToken) {
+    setAuthCookie(res, "sada_session", result.accessToken, 60 * 30);
+    setAuthCookie(res, "sada_refresh", result.refreshToken, 30 * 86400);
+  }
+  return res;
+}, { auth: false });
+
+router.post("auth/login-password", async (ctx) => {
+  const body = await ctx.json<{ identifier: string; password: string; deviceName?: string; platform?: string }>();
+  const parsed = z
+    .object({
+      identifier: z.string().min(5).max(254),
+      password: z.string().min(1).max(128),
+      deviceName: z.string().max(60).optional(),
+      platform: z.string().max(20).optional(),
+    })
+    .parse(body);
+  const result = await auth.loginPassword(parsed.identifier, parsed.password, parsed, ctx.ip);
+  const res = ok(result);
+  if (result.status === "ok" && result.accessToken && result.refreshToken) {
+    setAuthCookie(res, "sada_session", result.accessToken, 60 * 30);
+    setAuthCookie(res, "sada_refresh", result.refreshToken, 30 * 86400);
+  }
+  return res;
+}, { auth: false });
+
 router.post("auth/refresh", async (ctx) => {
   const body = await ctx.json<{ refreshToken?: string }>().catch(() => ({ refreshToken: undefined }));
   const token = body.refreshToken || ctx.cookies["sada_refresh"];
@@ -120,6 +172,21 @@ router.post("auth/2fa/disable", async (ctx) => {
   return ok(await auth.disableTwofa(me(ctx).userId, body.code));
 });
 
+// account password (set first time / change — used for password login)
+router.get("users/me/password", async (ctx) => {
+  return ok(await users.hasPassword(me(ctx).userId));
+});
+router.post("users/me/password", async (ctx) => {
+  const body = await ctx.json<{ currentPassword?: string; newPassword: string }>();
+  const parsed = z
+    .object({
+      currentPassword: z.string().min(1).max(128).optional(),
+      newPassword: z.string().min(1).max(128),
+    })
+    .parse(body);
+  return ok(await auth.setPassword(me(ctx).userId, parsed.newPassword, parsed.currentPassword, ctx.ip));
+});
+
 // ---------------- USERS ----------------
 
 router.get("users/me", async (ctx) => {
@@ -127,7 +194,7 @@ router.get("users/me", async (ctx) => {
   const user = await users.getPublicUser(m.userId, m.userId);
   const settings = await users.getSettings(m.userId);
   const privacy = await users.getPrivacy(m.userId);
-  return ok({ ...user, phone: m.user.phone, settings, privacy });
+  return ok({ ...user, phone: m.user.phone, email: m.user.email, settings, privacy });
 });
 
 router.patch("users/me", async (ctx) => {

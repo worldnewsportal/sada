@@ -136,6 +136,10 @@ export const RateLimits: Record<string, { windowMs: number; max: number }> = {
   "auth:verify-otp": { windowMs: 60_000, max: 8 },
   "auth:login-ip": { windowMs: 60_000, max: 20 },
   "auth:refresh": { windowMs: 60_000, max: 60 },
+  // email auth (signup/login by code, password login)
+  "auth:request-email-otp": { windowMs: 60_000, max: 3 },
+  "auth:verify-email-otp": { windowMs: 60_000, max: 8 },
+  "auth:login-password": { windowMs: 60_000, max: 8 },
   "messages:send": { windowMs: 10_000, max: 25 },
   "messages:edit": { windowMs: 10_000, max: 30 },
   "media:upload-session": { windowMs: 60_000, max: 60 },

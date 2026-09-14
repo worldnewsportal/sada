@@ -16,7 +16,8 @@ export interface AuthContext {
   sessionId: string;
   user: {
     id: string;
-    phone: string;
+    phone: string | null;
+    email: string | null;
     username: string | null;
     displayName: string;
     isVerified: boolean;
@@ -151,6 +152,7 @@ export async function resolveAuth(req: Request, cookies: Record<string, string>)
     user: {
       id: session.user.id,
       phone: session.user.phone,
+      email: session.user.email,
       username: session.user.username,
       displayName: session.user.displayName,
       isVerified: session.user.isVerified,
